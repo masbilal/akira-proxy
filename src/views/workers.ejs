@@ -1,0 +1,75 @@
+<%- include('partials/head', { title: 'Workers · dapuranmu' }) %>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-semibold">Workers</h1>
+      <div id="refreshState" class="text-xs text-slate-500">refreshing...</div>
+    </div>
+
+    <!-- MySQL backup status card -->
+    <section class="bg-white rounded-xl border border-slate-200 p-4 mb-5">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="font-medium">MySQL backup</h2>
+            <span id="backupStatusBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">unknown</span>
+          </div>
+          <p id="backupTarget" class="text-xs text-slate-500 mt-1 font-mono">—</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="runBackupBtn" class="text-xs px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50">Run backup now</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-xs">
+        <div class="pool-metric"><span>Last run</span><strong id="backupLastRun">—</strong></div>
+        <div class="pool-metric"><span>Last duration</span><strong id="backupLastDur">—</strong></div>
+        <div class="pool-metric"><span>Next run</span><strong id="backupNextRun">—</strong></div>
+        <div class="pool-metric"><span>Interval</span><strong id="backupInterval">—</strong></div>
+      </div>
+      <div id="backupRowsSummary" class="text-xs text-slate-500 mt-3 font-mono break-all"></div>
+      <div id="backupError" class="hidden mt-3 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md p-2"></div>
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5">
+      <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-200">
+          <h2 class="font-medium">Jobs</h2>
+        </div>
+        <div id="jobList" class="divide-y divide-slate-100">
+          <div class="px-5 py-8 text-center text-sm text-slate-400">No worker jobs yet.</div>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h2 id="jobTitle" class="font-medium">Select a job</h2>
+            <div id="jobMeta" class="text-xs text-slate-500 mt-0.5"></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="cancelJobBtn" class="hidden text-xs px-3 py-1.5 rounded-md border border-rose-400 text-rose-400 hover:bg-rose-950/40">Stop</button>
+            <span id="jobStatus" class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">idle</span>
+          </div>
+        </div>
+        <div class="px-5 py-4 border-b border-slate-100">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+            <span id="progressText">0 / 0</span>
+            <span id="currentText">-</span>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-brand-500 rounded-full" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h3 class="text-xs font-medium text-slate-500 mb-2">Account results</h3>
+          <div id="resultList" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs"></div>
+        </div>
+        <pre id="jobLog" class="h-[62vh] overflow-auto bg-slate-950 text-slate-100 text-xs leading-relaxed p-4 font-mono whitespace-pre-wrap">Waiting for log...</pre>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="/js/workers.js"></script>
+</body>
+</html>

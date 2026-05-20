@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiro Session · dapuranmu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      max-width: 520px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 {
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    .header p {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.875rem;
+      margin-top: 8px;
+    }
+    .content {
+      padding: 24px;
+    }
+    .step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .step-number {
+      width: 32px;
+      height: 32px;
+      background: #667eea;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .step-content h3 {
+      font-size: 1rem;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .step-content p {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+    .token-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 16px 0;
+      position: relative;
+    }
+    .token-box code {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.75rem;
+      color: #4b5563;
+      word-break: break-all;
+      display: block;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .copy-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+    .copy-btn:hover { background: #5a67d8; }
+    .copy-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn {
+      flex: 1;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: white;
+      color: #374151;
+      border: 1px solid #d1d5db;
+    }
+    .btn-secondary:hover { background: #f9fafb; }
+    .notice {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 16px;
+      font-size: 0.75rem;
+      color: #92400e;
+    }
+    .email-badge {
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+    #status { margin-top: 16px; padding: 12px; border-radius: 8px; display: none; }
+    #status.success { display: block; background: #d1fae5; color: #065f46; }
+    #status.error { display: block; background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Open Kiro Session</h1>
+      <p id="emailDisplay"><%= email || 'Kiro Account' %></p>
+    </div>
+    <div class="content">
+      <% if (email) { %>
+        <span class="email-badge"><%= email %></span>
+      <% } %>
+      
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Copy Access Token</h3>
+          <p>Copy the access token below to your clipboard.</p>
+        </div>
+      </div>
+      
+      <div class="token-box">
+        <code id="accessToken"><%= accessToken %></code>
+        <button class="copy-btn" onclick="copyToken()">Copy Token</button>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Open Kiro Dashboard</h3>
+          <p>Click the button below to open app.kiro.dev in a new tab.</p>
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button class="btn btn-primary" onclick="openKiro()">Open app.kiro.dev</button>
+        <button class="btn btn-secondary" onclick="window.close()">Close</button>
+      </div>
+      
+      <div class="step" style="margin-top: 24px;">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Set Cookie (if needed)</h3>
+          <p>If you're not logged in, open browser DevTools (F12) and run:</p>
+        </div>
+      </div>
+      
+      <div class="token-box">
+        <code style="white-space: pre-wrap;">document.cookie = "AccessToken=<%= accessToken %>; path=/; domain=.kiro.dev";
+document.cookie = "Idp=Google; path=/; domain=.kiro.dev";</code>
+        <button class="copy-btn" onclick="copyCookieScript()">Copy Script</button>
+      </div>
+      
+      <div id="status"></div>
+      
+      <div class="notice">
+        <strong>Note:</strong> The access token expires in ~1 hour. You may need to refresh it again from the dashboard if the session expires.
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    function copyToken() {
+      const token = document.getElementById('accessToken').textContent;
+      navigator.clipboard.writeText(token).then(() => {
+        showStatus('Access token copied!', 'success');
+      }).catch(err => {
+        showStatus('Failed to copy: ' + err.message, 'error');
+      });
+    }
+    
+    function copyCookieScript() {
+      const script = `document.cookie = "AccessToken=<%= accessToken %>; path=/; domain=.kiro.dev";\ndocument.cookie = "Idp=Google; path=/; domain=.kiro.dev";`;
+      navigator.clipboard.writeText(script).then(() => {
+        showStatus('Cookie script copied!', 'success');
+      }).catch(err => {
+        showStatus('Failed to copy: ' + err.message, 'error');
+      });
+    }
+    
+    function openKiro() {
+      window.open('https://app.kiro.dev/account/usage', '_blank');
+    }
+    
+    function showStatus(msg, type) {
+      const status = document.getElementById('status');
+      status.textContent = msg;
+      status.className = type;
+      setTimeout(() => { status.className = ''; }, 3000);
+    }
+  </script>
+</body>
+</html>

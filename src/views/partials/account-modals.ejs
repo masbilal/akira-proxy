@@ -1,0 +1,514 @@
+<%
+  // Lookup provider by type so each modal's <select> is scoped to the right pool.
+  const openaiProviders = (providers || []).filter((p) => p.type === 'openai');
+  const kiroProviders   = (providers || []).filter((p) => p.type === 'kiro');
+  const codexProviders  = (providers || []).filter((p) => p.type === 'codex');
+%>
+
+<!-- ======================================================================
+     OpenAI-style modal — per-account API key + optional config JSON.
+====================================================================== -->
+<div id="openaiModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 z-50">
+  <div class="account-provider-modal bg-white rounded-xl shadow-lg w-full max-w-2xl p-6" data-provider-type="openai">
+    <h2 class="text-lg font-semibold mb-4" id="openaiModalTitle">Add OpenAI account</h2>
+    <form id="openaiForm" class="space-y-3 text-sm">
+      <input type="hidden" name="id" />
+      <div class="account-provider-shell">
+        <div class="account-provider-hero">
+          <div class="account-provider-badge-row">
+            <span class="account-provider-badge">OpenAI-compatible</span>
+            <span class="account-provider-type-pill">OPENAI</span>
+          </div>
+          <h3 class="account-provider-heading">API key per account</h3>
+          <p class="account-provider-lead">Gunakan akun ini untuk provider OpenAI-compatible — isi label, email, dan API key per akun.</p>
+        </div>
+
+        <div class="account-provider-main space-y-3">
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Provider *</label>
+            <select name="provider_id" required class="w-full border border-slate-300 rounded-md px-3 py-2">
+              <% openaiProviders.forEach(p => { %>
+                <option value="<%= p.id %>" data-provider-type="<%= p.type %>" data-provider-name="<%= p.name %>"><%= p.name %></option>
+              <% }) %>
+              <% if (!openaiProviders.length) { %>
+                <option value="" disabled selected>Tidak ada provider bertipe openai. Tambahkan dulu di Providers.</option>
+              <% } %>
+            </select>
+          </div>
+          <div class="account-provider-panel">
+            <div class="account-provider-panel-title">Identity</div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Label</label>
+                <input name="label" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="OpenAI account 1" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Email</label>
+                <input name="email" type="email" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="owner@company.com" />
+              </div>
+            </div>
+          </div>
+          <div class="account-provider-panel">
+            <div class="account-provider-panel-title">API key</div>
+            <input name="api_key" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="sk-..." />
+          </div>
+          <div class="account-provider-panel">
+            <div class="account-provider-panel-title">Config JSON</div>
+            <textarea name="config_json" rows="4" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs">{}</textarea>
+          </div>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="enabled" checked /> Enabled
+          </label>
+        </div>
+      </div>
+      <div id="openaiFormError" class="text-sm text-rose-600 hidden"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeOpenAiModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+        <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================================================================
+     Kiro modal — two tabs: [Refresh token] [Batch login].
+     Refresh-token tab: exchange a refreshToken against the Kiro OAuth server
+                       (no browser needed) and persist the resulting account.
+     Batch-login tab:   same textarea/headless controls as the old batch modal.
+====================================================================== -->
+<div id="kiroModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 z-50">
+  <div class="account-provider-modal bg-white rounded-xl shadow-lg w-full max-w-2xl p-6" data-provider-type="kiro">
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <h2 class="text-lg font-semibold" id="kiroModalTitle">Add Kiro account</h2>
+        <p class="text-xs text-slate-500 mt-1">Pilih cara menambahkan akun Kiro: tukar refresh token langsung, atau batch login browser.</p>
+      </div>
+      <button type="button" onclick="openKiroFilterModal()" class="text-xs text-brand-600 hover:underline whitespace-nowrap">Filter existing →</button>
+    </div>
+
+    <div class="account-provider-tabs" role="tablist">
+      <button type="button" class="account-provider-tab is-active" data-kiro-tab="refresh" role="tab">Refresh token</button>
+      <button type="button" class="account-provider-tab" data-kiro-tab="batch-refresh" role="tab">Batch tokens</button>
+      <button type="button" class="account-provider-tab" data-kiro-tab="batch" role="tab">Batch login</button>
+    </div>
+
+    <!-- Tab: Refresh token (single) -->
+    <div class="account-provider-tabpanel" data-kiro-panel="refresh">
+      <form id="kiroRefreshForm" class="space-y-3 text-sm">
+        <input type="hidden" name="id" />
+        <input type="hidden" name="provider_id" value="<%= kiroProviders.length ? kiroProviders[0].id : '' %>" />
+        <div class="account-provider-shell">
+          <div class="account-provider-hero">
+            <div class="account-provider-badge-row">
+              <span class="account-provider-badge">Tukar refreshToken</span>
+              <span class="account-provider-type-pill">KIRO</span>
+            </div>
+            <h3 class="account-provider-heading">Refresh token &rarr; access token</h3>
+            <p class="account-provider-lead">
+              Paste <code class="font-mono">refreshToken</code> hasil login Kiro. Server akan memanggil
+              <code class="font-mono">/refreshToken</code> untuk mendapatkan accessToken + profileArn,
+              lalu menyimpan akun beserta subscription info.
+            </p>
+          </div>
+
+          <div class="account-provider-main space-y-3">
+            <% if (!kiroProviders.length) { %>
+              <div class="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                Tidak ada provider bertipe <span class="font-mono">kiro</span>. Tambahkan dulu di halaman Providers.
+              </div>
+            <% } %>
+
+            <div class="account-provider-panel">
+              <div class="account-provider-panel-title">Identity (opsional)</div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Label</label>
+                  <input name="label" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Kiro account 1" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Email</label>
+                  <input name="email" type="email" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="kiro-user@gmail.com" />
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                Email opsional &mdash; kalau diisi akan dipakai untuk mencocokkan akun yang sudah ada (edit in place).
+              </p>
+            </div>
+
+            <div class="account-provider-panel">
+              <div class="account-provider-panel-title">Refresh token *</div>
+              <textarea name="refresh_token" rows="3" required
+                class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs"
+                placeholder="aorAAAAAG..."></textarea>
+              <p class="text-[11px] text-slate-500 mt-2">
+                Token ini akan ditukar via <span class="font-mono">https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken</span>.
+                Kalau token sudah kadaluarsa/revoked, server akan mengembalikan error detail.
+              </p>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="probe_usage" checked /> Probe subscription setelah tukar token
+            </label>
+          </div>
+        </div>
+
+        <div id="kiroRefreshFormError" class="text-sm text-rose-600 hidden"></div>
+        <div id="kiroRefreshFormInfo" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 hidden"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeKiroModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+          <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Exchange &amp; save</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tab: Batch refresh tokens -->
+    <div class="account-provider-tabpanel hidden" data-kiro-panel="batch-refresh">
+      <form id="kiroBatchRefreshForm" class="space-y-3 text-sm">
+        <input type="hidden" name="provider_id" value="<%= kiroProviders.length ? kiroProviders[0].id : '' %>" />
+        <div class="account-provider-shell">
+          <div class="account-provider-hero">
+            <div class="account-provider-badge-row">
+              <span class="account-provider-badge">Batch refresh tokens</span>
+              <span class="account-provider-type-pill">KIRO</span>
+            </div>
+            <h3 class="account-provider-heading">Import banyak refresh token sekaligus</h3>
+            <p class="account-provider-lead">
+              Satu baris per token. Format: <code class="font-mono">email:refreshToken</code> atau <code class="font-mono">refreshToken</code> saja.
+              Email akan otomatis dideteksi dari profil Kiro jika tidak diisi.
+            </p>
+          </div>
+
+          <div class="account-provider-main space-y-3">
+            <% if (!kiroProviders.length) { %>
+              <div class="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                Tidak ada provider bertipe <span class="font-mono">kiro</span>. Tambahkan dulu di halaman Providers.
+              </div>
+            <% } %>
+
+            <div class="account-provider-panel">
+              <div class="account-provider-panel-title">Tokens (satu per baris)</div>
+              <textarea name="tokens" rows="10" required
+                class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs"
+                placeholder="email@example.com:aorAAAAAG...&#10;aorBBBBBH...&#10;email2@example.com:aorCCCCCI..."></textarea>
+              <p class="text-[11px] text-slate-500 mt-2">
+                Format yang didukung:<br>
+                • <code class="font-mono">email:refreshToken</code> — email eksplisit<br>
+                • <code class="font-mono">refreshToken</code> — email auto-detect dari Kiro<br>
+                Baris diawali <code class="font-mono">#</code> akan diabaikan.
+              </p>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="probe_usage" checked /> Probe subscription untuk setiap token
+            </label>
+          </div>
+        </div>
+
+        <div id="kiroBatchRefreshFormError" class="text-sm text-rose-600 hidden"></div>
+        <div id="kiroBatchRefreshFormInfo" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 hidden"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeKiroModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+          <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Import all</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tab: Batch login -->
+    <div class="account-provider-tabpanel hidden" data-kiro-panel="batch">
+      <form id="batchForm" class="space-y-3 text-sm">
+        <div class="account-provider-shell">
+          <div class="account-provider-hero">
+            <div class="account-provider-badge-row">
+              <span class="account-provider-badge">Playwright</span>
+              <span class="account-provider-type-pill">KIRO</span>
+            </div>
+            <h3 class="account-provider-heading">Batch login via browser</h3>
+            <p class="account-provider-lead">
+              Paste banyak baris <code class="font-mono">email:password</code>. Worker akan login satu per satu
+              via Playwright dan menyimpan tokennya.
+            </p>
+          </div>
+
+          <div class="account-provider-main space-y-3">
+            <div class="account-provider-panel">
+              <div class="account-provider-panel-title">Accounts</div>
+              <textarea name="accounts" rows="8" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="email@example.com:password"></textarea>
+            </div>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="headless" checked /> Headless
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="incognito" checked /> Incognito (no persistent profile)
+            </label>
+          </div>
+        </div>
+        <div id="batchFormError" class="text-sm text-rose-600 hidden"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeKiroModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+          <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Start worker</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     Codex modal — follows scripts/login-codex.js flow.
+     Tab [Browser login] spawns the login script as a worker job (OAuth PKCE,
+                         callback on http://localhost:1455).
+     Tab [Manual token]  allows pasting refresh_token/access_token when the
+                         admin already has them (rare; mostly for recovery).
+====================================================================== -->
+<div id="codexModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 z-50">
+  <div class="account-provider-modal bg-white rounded-xl shadow-lg w-full max-w-2xl p-6" data-provider-type="codex">
+    <h2 class="text-lg font-semibold mb-1" id="codexModalTitle">Add Codex account</h2>
+    <p class="text-xs text-slate-500 mb-4">Codex pakai OAuth PKCE ke ChatGPT (<code class="font-mono">auth.openai.com</code>). Jalankan login di browser server atau paste token yang sudah ada.</p>
+
+    <div class="account-provider-tabs" role="tablist">
+      <button type="button" class="account-provider-tab is-active" data-codex-tab="browser" role="tab">Browser login</button>
+      <button type="button" class="account-provider-tab" data-codex-tab="manual" role="tab">Manual token</button>
+    </div>
+
+    <!-- Tab: Browser login -->
+    <div class="account-provider-tabpanel" data-codex-panel="browser">
+      <form id="codexLoginForm" class="space-y-3 text-sm">
+        <input type="hidden" name="provider_id" value="<%= codexProviders.length ? codexProviders[0].id : '' %>" />
+        <div class="account-provider-shell">
+          <div class="account-provider-hero">
+            <div class="account-provider-badge-row">
+              <span class="account-provider-badge">OAuth PKCE</span>
+              <span class="account-provider-type-pill">CODEX</span>
+            </div>
+            <h3 class="account-provider-heading">Login via ChatGPT di browser</h3>
+            <p class="account-provider-lead">
+              Server akan menjalankan <code class="font-mono">scripts/login-codex.js</code>, membuka browser,
+              menerima callback di <code class="font-mono">http://localhost:1455/auth/callback</code>,
+              lalu menyimpan token beserta <code class="font-mono">chatgpt_account_id</code>.
+            </p>
+          </div>
+
+          <div class="account-provider-main space-y-3">
+            <% if (!codexProviders.length) { %>
+              <div class="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                Tidak ada provider bertipe <span class="font-mono">codex</span>. Tambahkan dulu di halaman Providers.
+              </div>
+            <% } %>
+
+            <div class="account-provider-panel">
+              <div class="account-provider-panel-title">Callback</div>
+              <div class="flex flex-wrap items-center gap-3">
+                <label class="text-xs text-slate-600">Port</label>
+                <input name="port" type="number" min="1" max="65535" value="1455" class="w-28 border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" />
+                <label class="flex items-center gap-2 text-xs ml-auto">
+                  <input type="checkbox" name="force" /> Force rebuild
+                </label>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2">
+                Port <span class="font-mono">1455</span> harus bebas &mdash; OpenAI memvalidasi redirect URI persis.
+                Label akun otomatis diambil dari email ChatGPT setelah login.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div id="codexLoginFormError" class="text-sm text-rose-600 hidden"></div>
+        <div id="codexLoginFormInfo" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 hidden"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeCodexModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+          <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Start login</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tab: Manual token -->
+    <div class="account-provider-tabpanel hidden" data-codex-panel="manual">
+      <form id="codexManualForm" class="space-y-3 text-sm">
+        <input type="hidden" name="id" />
+        <input type="hidden" name="provider_id" value="<%= codexProviders.length ? codexProviders[0].id : '' %>" />
+        <div class="account-provider-shell">
+          <div class="account-provider-hero">
+            <div class="account-provider-badge-row">
+              <span class="account-provider-badge">Manual</span>
+              <span class="account-provider-type-pill">CODEX</span>
+            </div>
+            <h3 class="account-provider-heading">Paste token yang sudah ada</h3>
+            <p class="account-provider-lead">
+              Pakai ini kalau Anda punya <code class="font-mono">access_token</code> + <code class="font-mono">refresh_token</code>
+              Codex dari sesi login sebelumnya (misal hasil export). Untuk login baru, pakai tab Browser login.
+            </p>
+          </div>
+
+          <div class="account-provider-main space-y-3">
+            <div class="account-provider-panel">
+              <div class="account-provider-panel-title">Account</div>
+              <div class="grid grid-cols-1 gap-3">
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Email *</label>
+                  <input name="email" type="email" required class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="chatgpt-owner@example.com" />
+                  <p class="text-[11px] text-slate-500 mt-1">Label akun otomatis diambil dari email ini.</p>
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Access token *</label>
+                  <input name="access_token" required class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Refresh token</label>
+                  <input name="refresh_token" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" />
+                </div>
+              </div>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="enabled" checked /> Enabled
+            </label>
+          </div>
+        </div>
+        <div id="codexManualFormError" class="text-sm text-rose-600 hidden"></div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeCodexModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+          <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     Filter-existing modal (Kiro only) — unchanged from the legacy flow.
+====================================================================== -->
+<div id="filterModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 z-50">
+  <div class="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <h2 class="text-lg font-semibold">Filter email vs existing accounts</h2>
+        <p class="text-xs text-slate-500 mt-1">
+          Paste lines in <code class="font-mono">email:password</code> format (same as Batch Kiro login).
+          Lines already in the database are shown as "existing"; new ones can be copied straight into the batch login.
+        </p>
+      </div>
+      <button type="button" onclick="closeFilterModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+    </div>
+
+    <form id="filterForm" class="space-y-3 text-sm">
+      <textarea name="accounts" rows="8" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="email1@example.com:password1&#10;email2@example.com:password2"></textarea>
+      <div class="flex justify-between items-center gap-2">
+        <div id="filterFormError" class="text-sm text-rose-600 hidden"></div>
+        <div class="flex gap-2">
+          <button type="button" onclick="clearFilterResults()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Clear</button>
+          <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Check</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="filterResults" class="hidden mt-5 space-y-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="pool-metric"><span>Total</span><strong id="filterTotal">0</strong></div>
+        <div class="pool-metric"><span>Existing</span><strong id="filterExistingCount" class="text-slate-600">0</strong></div>
+        <div class="pool-metric"><span>Missing</span><strong id="filterMissingCount" class="text-emerald-600">0</strong></div>
+        <div class="pool-metric"><span>Invalid</span><strong id="filterInvalidCount" class="text-rose-600">0</strong></div>
+      </div>
+
+      <div class="border border-emerald-200 bg-emerald-50/50 rounded-lg p-4">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div>
+            <div class="text-sm font-semibold text-emerald-800">Missing (can be added)</div>
+            <div class="text-xs text-emerald-700/80">These emails are not yet in the database.</div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="copyFilterMissing()" class="text-xs border border-emerald-300 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-md">Copy</button>
+            <button type="button" onclick="sendMissingToBatch()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md">Send to Batch login</button>
+          </div>
+        </div>
+        <textarea id="filterMissingText" rows="5" readonly class="w-full border border-emerald-200 rounded-md px-3 py-2 font-mono text-xs bg-white"></textarea>
+      </div>
+
+      <div class="border border-slate-200 rounded-lg p-4">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div>
+            <div class="text-sm font-semibold text-slate-700">Existing (already in DB)</div>
+            <div class="text-xs text-slate-500">These accounts already exist under the Kiro provider.</div>
+          </div>
+          <button type="button" onclick="copyFilterExisting()" class="text-xs border border-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-md">Copy</button>
+        </div>
+        <div id="filterExistingList" class="space-y-1 max-h-48 overflow-y-auto text-xs font-mono"></div>
+      </div>
+
+      <div id="filterDuplicateBlock" class="hidden border border-amber-200 bg-amber-50/50 rounded-lg p-4">
+        <div class="text-sm font-semibold text-amber-800 mb-1">Duplicates in input</div>
+        <div id="filterDuplicateList" class="text-xs font-mono text-amber-900"></div>
+      </div>
+
+      <div id="filterInvalidBlock" class="hidden border border-rose-200 bg-rose-50/50 rounded-lg p-4">
+        <div class="text-sm font-semibold text-rose-800 mb-1">Invalid lines</div>
+        <div id="filterInvalidList" class="text-xs font-mono text-rose-900"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     Edit-account modal — provider-aware, opened via editAccount(row).
+====================================================================== -->
+<div id="editAccountModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 z-50">
+  <div class="account-provider-modal bg-white rounded-xl shadow-lg w-full max-w-2xl p-6" data-provider-type="openai">
+    <h2 id="editAccountModalTitle" class="text-lg font-semibold mb-4">Edit account</h2>
+    <form id="editAccountForm" class="space-y-3 text-sm">
+      <input type="hidden" name="id" />
+      <input type="hidden" name="provider_id" />
+      <input type="hidden" name="provider_type" />
+      <div class="account-provider-shell">
+        <div class="account-provider-hero">
+          <div class="account-provider-badge-row">
+            <span class="account-provider-badge" id="editAccountBadge">Edit</span>
+            <span id="editAccountTypePill" class="account-provider-type-pill">OPENAI</span>
+          </div>
+          <h3 id="editAccountHeading" class="account-provider-heading">Edit account</h3>
+          <p id="editAccountLead" class="account-provider-lead">Update identity, token, atau config JSON untuk akun ini.</p>
+        </div>
+        <div class="account-provider-main space-y-3">
+          <div class="account-provider-panel">
+            <div class="account-provider-panel-title">Identity</div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Label</label>
+                <input name="label" class="w-full border border-slate-300 rounded-md px-3 py-2" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Email</label>
+                <input name="email" type="email" class="w-full border border-slate-300 rounded-md px-3 py-2" />
+              </div>
+            </div>
+          </div>
+          <section data-edit-section="openai" class="account-provider-panel">
+            <div class="account-provider-panel-title">API key</div>
+            <input name="api_key" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="Leave blank to keep existing" />
+          </section>
+          <section data-edit-section="kiro codex" class="account-provider-panel">
+            <div class="account-provider-panel-title">OAuth Tokens</div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Access token</label>
+                <input name="access_token" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="Leave blank to keep existing" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Refresh token</label>
+                <input name="refresh_token" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="Leave blank to keep existing" />
+              </div>
+            </div>
+          </section>
+          <div class="account-provider-panel">
+            <div class="account-provider-panel-title">Config JSON</div>
+            <textarea name="config_json" rows="4" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs">{}</textarea>
+          </div>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="enabled" /> Enabled
+          </label>
+        </div>
+      </div>
+      <div id="editAccountFormError" class="text-sm text-rose-600 hidden"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeEditAccountModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+        <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

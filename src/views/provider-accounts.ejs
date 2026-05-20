@@ -1,0 +1,312 @@
+<%- include('partials/head', { title: provider.name + ' Accounts · dapuranmu' }) %>
+<%
+  function qs(overrides) {
+    const q = Object.assign({
+      status: filters.status,
+      tier: filters.tier,
+      q: filters.q,
+      page: typeof page !== 'undefined' ? page : 1,
+    }, overrides || {});
+    const parts = [];
+    for (const [k, v] of Object.entries(q)) {
+      if (v === null || v === undefined || v === '' || v === 'all') continue;
+      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+    }
+    return parts.length ? '?' + parts.join('&') : '';
+  }
+
+  function briefWhen(sec) {
+    if (!sec) return '-';
+    const diff = Math.max(0, Math.floor(Date.now() / 1000) - Number(sec));
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 86400 * 30) return Math.floor(diff / 86400) + 'd ago';
+    return formatDate(sec);
+  }
+
+  // "in 3h 12m" / "in 4d 2h" — used by Codex quota reset labels.
+  function briefUntil(sec) {
+    if (!sec) return '';
+    const diff = Number(sec) - Math.floor(Date.now() / 1000);
+    if (!Number.isFinite(diff) || diff <= 0) return 'now';
+    if (diff < 3600) return 'in ' + Math.floor(diff / 60) + 'm';
+    if (diff < 86400) {
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      return m ? `in ${h}h ${m}m` : `in ${h}h`;
+    }
+    const d = Math.floor(diff / 86400);
+    const h = Math.floor((diff % 86400) / 3600);
+    return h ? `in ${d}d ${h}h` : `in ${d}d`;
+  }
+%>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <a href="/accounts" class="text-xs text-brand-600 hover:underline">← Back to account pools</a>
+        <div class="flex items-center gap-3 mt-2">
+          <%- include('partials/provider-icon', { type: provider.type, size: 28 }) %>
+          <h1 class="text-2xl font-semibold"><%= provider.name %></h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700"><%= provider.type %></span>
+        </div>
+        <p class="text-sm text-slate-500 mt-1 font-mono"><%= provider.base_url %></p>
+      </div>
+      <div class="flex gap-2">
+        <% if (provider.type === 'kiro') { %>
+          <button onclick="openFilterModal()" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-md">Filter emails</button>
+          <button onclick="openBatchModal()" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-md">Batch Kiro login</button>
+        <% } %>
+        <button onclick="openAccountModal(<%= provider.id %>)" class="bg-brand-500 hover:bg-brand-600 text-white text-sm px-4 py-2 rounded-md">+ Add <%= provider.type === 'kiro' ? 'Kiro' : provider.type === 'codex' ? 'Codex' : provider.type === 'openai' ? 'OpenAI' : '' %> account</button>
+      </div>
+    </div>
+
+    <% const isKiro = provider.type === 'kiro';
+       const s = summary.stats;
+       const used = Math.max(0, Number(s.creditsCurrent || 0));
+       const limit = Math.max(0, Number(s.creditsLimit || 0));
+       const remaining = Math.max(0, limit - used);
+       const fmtNum = (n) => Number(n).toLocaleString();
+       const creditsLabel = s.creditsLimit ? summary.creditPct + '%' : '-';
+    %>
+    <div class="stat-strip mb-6">
+      <span class="stat-strip-item"><span>Total</span><strong><%= s.total %></strong></span>
+      <span class="stat-strip-item"><span>Active</span><strong class="text-emerald-600"><%= s.active %></strong></span>
+      <span class="stat-strip-item"><span>Disabled</span><strong><%= s.disabled %></strong></span>
+      <span class="stat-strip-item"><span>Exhausted</span><strong class="text-rose-600"><%= s.exhausted %></strong></span>
+      <span class="stat-strip-item"><span>Errors</span><strong class="text-amber-600"><%= s.error %></strong></span>
+      <span class="stat-strip-item"><span>Credits</span><strong><%= creditsLabel %></strong></span>
+      <% if (isKiro) { %>
+        <span class="stat-strip-sep" aria-hidden="true"></span>
+        <span class="stat-strip-item"><span>Pro</span><strong class="text-indigo-600"><%= s.pro %></strong></span>
+        <span class="stat-strip-item"><span>Power</span><strong class="text-purple-600"><%= s.power %></strong></span>
+        <span class="stat-strip-item"><span>Free</span><strong class="text-slate-700"><%= s.free %></strong></span>
+        <% if (s.unknown > 0) { %><span class="stat-strip-item"><span>Unknown</span><strong class="text-slate-500"><%= s.unknown %></strong></span><% } %>
+        <span class="stat-strip-item"><span>Used</span><strong class="text-amber-600"><%= fmtNum(used) %></strong></span>
+        <span class="stat-strip-item"><span>Remaining</span><strong class="text-emerald-600"><%= fmtNum(remaining) %></strong></span>
+      <% } %>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="account-filter-bar">
+      <form method="GET" class="account-filter-search" role="search">
+        <input type="hidden" name="status" value="<%= filters.status %>" />
+        <input type="hidden" name="tier" value="<%= filters.tier %>" />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" name="q" value="<%= filters.q %>" placeholder="Search email or label" autocomplete="off" />
+        <% if (filters.q) { %>
+          <a class="account-filter-clear" href="<%= qs({ q: '', page: 1 }) %>" title="Clear search">&times;</a>
+        <% } %>
+      </form>
+
+      <div class="account-filter-group">
+        <span class="account-filter-label">Status</span>
+        <% ['all','active','disabled','exhausted','error'].forEach((key) => { %>
+          <a class="account-filter-chip <%= filters.status === key ? 'is-active filter-status-' + key : '' %>"
+             href="<%= qs({ status: key, page: 1 }) %>">
+            <%= key %>
+            <span class="account-filter-chip-count"><%= filterCounts.status[key] || 0 %></span>
+          </a>
+        <% }) %>
+      </div>
+
+      <div class="account-filter-group">
+        <span class="account-filter-label">Tier</span>
+        <% ['all','free','plus','pro','team','business','edu','power','enterprise','unknown'].forEach((key) => {
+             if (key !== 'all' && !filterCounts.tier[key]) return;
+        %>
+          <a class="account-filter-chip <%= filters.tier === key ? 'is-active filter-tier-' + key : '' %>"
+             href="<%= qs({ tier: key, page: 1 }) %>">
+            <%= key %>
+            <span class="account-filter-chip-count"><%= filterCounts.tier[key] || 0 %></span>
+          </a>
+        <% }) %>
+      </div>
+
+      <% if (filters.status !== 'all' || filters.tier !== 'all' || filters.q) { %>
+        <a class="account-filter-reset" href="/accounts/<%= provider.id %>">Reset filters</a>
+      <% } %>
+    </div>
+
+    <% if (!rows.length) { %>
+      <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
+        <div class="text-lg font-medium">No accounts match the filter</div>
+        <p class="text-sm text-slate-500 mt-2">Try clearing the filters or add a new account.</p>
+      </div>
+    <% } %>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      <% rows.forEach((r) => {
+           const cfg = safeJsonParse(r.config_json, {});
+           const sub = cfg.subscription || null;
+           const usage = sub && sub.usage;
+           const tier = sub && sub.tier ? String(sub.tier).toLowerCase() : 'unknown';
+           const errorState = cfg.error && (!cfg.error.until || Number(cfg.error.until) > Math.floor(Date.now() / 1000)) ? cfg.error : null;
+           const errorLabel = errorState ? (errorState.label || (errorState.kind === 'rate_limited' ? 'rate limited' : 'error')) : '';
+           const pct = usage && Number(usage.limit || 0) > 0
+             ? Math.min(100, Math.round((Number(usage.current || 0) / Number(usage.limit || 0)) * 100))
+             : 0;
+           const status = r.exhausted_at ? 'exhausted' : errorState ? 'error' : r.enabled ? 'active' : 'disabled';
+           const title = r.label || r.email || ('Account #' + r.id);
+
+           // Codex quota: primary = 5 hours, secondary = weekly.
+           const isCodex = provider.type === 'codex';
+           function codexBucket(b) {
+             if (!b) return null;
+             const used = Number(b.used_percent ?? b.usedPercent ?? 0);
+             return {
+               pct: Math.max(0, Math.min(100, Math.round(Number.isFinite(used) ? used : 0))),
+               resetsAt: Number(b.resets_at || b.resetsAt || 0) || null,
+             };
+           }
+           const codexPrimary = isCodex ? codexBucket(sub && sub.primary) : null;
+           const codexSecondary = isCodex ? codexBucket(sub && sub.secondary) : null;
+      %>
+        <article class="account-row">
+          <div class="account-row-head">
+            <div class="account-row-title-wrap">
+              <span class="account-row-dot account-dot-<%= status %>" title="<%= errorState ? errorLabel : status %>"></span>
+              <h2 class="account-row-title" title="<%= title %>"><%= title %></h2>
+              <span class="account-row-tier tier-<%= tier %>"><%= sub ? (sub.title || tier) : tier %></span>
+            </div>
+            <div class="account-row-actions">
+              <% if (provider.type === 'kiro') { %>
+                <% if (tier === 'free' || tier === 'unknown') { %>
+                  <button type="button" class="account-upgrade-btn" title="Upgrade this account to Pro via Stripe checkout" onclick="upgradeAccountToPro(<%= r.id %>, this)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polyline points="17 11 12 6 7 11"></polyline>
+                      <polyline points="17 18 12 13 7 18"></polyline>
+                    </svg>
+                    <span class="account-upgrade-label">Upgrade to Pro</span>
+                  </button>
+                <% } %>
+                <button type="button" class="account-icon-btn" title="Refresh plan" onclick="refreshAccount(<%= r.id %>)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                    <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+                  </svg>
+                </button>
+              <% } else if (provider.type === 'codex') { %>
+                <button type="button" class="account-icon-btn" title="Refresh Codex quota" onclick="refreshAccount(<%= r.id %>)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                    <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+                  </svg>
+                </button>
+              <% } %>
+              <div class="account-menu">
+                <button type="button" class="account-icon-btn account-menu-btn" aria-haspopup="menu" aria-expanded="false" title="More actions">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <circle cx="5" cy="12" r="2"></circle>
+                    <circle cx="12" cy="12" r="2"></circle>
+                    <circle cx="19" cy="12" r="2"></circle>
+                  </svg>
+                </button>
+                <div class="account-menu-list" role="menu">
+                  <button type="button" role="menuitem" onclick='editAccount(<%- JSON.stringify(r) %>)'>Edit</button>                  <% if (provider.type === 'kiro') { %>
+                    <button type="button" role="menuitem" onclick="openKiroSession(<%= r.id %>, this)">Open Kiro session</button>
+                  <% } %>                  <% if (r.refresh_token) { %>
+                    <button type="button" role="menuitem" onclick="copyRefreshToken(<%= r.id %>, this)">Copy refresh token</button>
+                  <% } %>
+                  <% if (r.exhausted_at) { %>
+                    <button type="button" role="menuitem" onclick="resetAccount(<%= r.id %>)">Reset exhausted</button>
+                  <% } %>
+                  <button type="button" role="menuitem" class="danger" onclick="deleteAccount(<%= r.id %>)">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="account-row-meta">
+            <span class="account-row-meta-email" title="<%= r.email || '' %>"><%= r.email || '-' %></span>
+            <span class="account-row-sep">·</span>
+            <span>used <%= briefWhen(r.last_used_at) %></span>
+            <% if (errorState) { %>
+              <span class="account-row-sep">·</span>
+              <span class="account-row-error-tag"><%= errorLabel %><% if (errorState.needsWarmup) { %> · warmup<% } %></span>
+            <% } %>
+          </div>
+
+          <div class="account-row-bar-wrap">
+            <% if (isCodex) { %>
+              <div class="account-codex-meters">
+                <div class="account-codex-meter">
+                  <div class="account-codex-meter-head">
+                    <span class="account-codex-meter-label">5h</span>
+                    <span class="account-codex-meter-value">
+                      <% if (codexPrimary) { %>
+                        <%= codexPrimary.pct %>%<% if (codexPrimary.resetsAt) { %> · resets <%= briefUntil(codexPrimary.resetsAt) %><% } %>
+                      <% } else { %>
+                        no data
+                      <% } %>
+                    </span>
+                  </div>
+                  <div class="account-row-bar-track">
+                    <div class="account-row-bar tier-bar-<%= tier %>" style="width:<%= codexPrimary ? codexPrimary.pct : 0 %>%"></div>
+                  </div>
+                </div>
+                <div class="account-codex-meter">
+                  <div class="account-codex-meter-head">
+                    <span class="account-codex-meter-label">Weekly</span>
+                    <span class="account-codex-meter-value">
+                      <% if (codexSecondary) { %>
+                        <%= codexSecondary.pct %>%<% if (codexSecondary.resetsAt) { %> · resets <%= briefUntil(codexSecondary.resetsAt) %><% } %>
+                      <% } else { %>
+                        no data
+                      <% } %>
+                    </span>
+                  </div>
+                  <div class="account-row-bar-track">
+                    <div class="account-row-bar tier-bar-<%= tier %>" style="width:<%= codexSecondary ? codexSecondary.pct : 0 %>%"></div>
+                  </div>
+                </div>
+              </div>
+            <% } else { %>
+              <div class="account-row-bar-track">
+                <div class="account-row-bar tier-bar-<%= tier %>" style="width:<%= pct %>%"></div>
+              </div>
+              <span class="account-row-bar-label">
+                <% if (usage) { %>
+                  <%= usage.current %>/<%= usage.limit %>
+                <% } else { %>
+                  no meter
+                <% } %>
+              </span>
+            <% } %>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+
+    <% if (pages > 1) { %>
+      <div class="flex items-center justify-between mt-6 text-sm">
+        <div class="text-slate-500">Page <%= page %> of <%= pages %> - <%= total %> accounts</div>
+        <div class="flex gap-2">
+          <% if (page > 1) { %>
+            <a class="border border-slate-300 rounded-md px-3 py-2" href="<%= qs({ page: page - 1 }) %>">Previous</a>
+          <% } %>
+          <% if (page < pages) { %>
+            <a class="border border-slate-300 rounded-md px-3 py-2" href="<%= qs({ page: page + 1 }) %>">Next</a>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </main>
+</div>
+
+<%- include('partials/account-modals', { providers }) %>
+<script>
+  window.__PROVIDERS__ = <%- JSON.stringify(providers.map(p => ({ id: p.id, type: p.type, name: p.name }))) %>;
+</script>
+<script src="/js/accounts.js"></script>
+</body>
+</html>

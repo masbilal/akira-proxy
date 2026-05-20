@@ -1,0 +1,149 @@
+<%- include('partials/head', { title: 'Accounts · dapuranmu' }) %>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Accounts</h1>
+        <p class="text-sm text-slate-500 mt-1">Provider pools, quota posture, and account health at a glance.</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/providers" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-md">Manage providers</a>
+      </div>
+    </div>
+
+    <% if (!summaries.length) { %>
+      <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
+        <div class="text-lg font-medium">No providers yet</div>
+        <p class="text-sm text-slate-500 mt-2">Add a provider first, then attach accounts to it.</p>
+      </div>
+    <% } %>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <% summaries.forEach((item) => {
+           const p = item.provider;
+           const s = item.stats;
+           const hasCredits = s.creditsLimit > 0;
+           const statusTone = s.exhausted > 0 ? 'pool-warn' : s.active > 0 ? 'pool-ok' : 'pool-muted';
+      %>
+        <article class="provider-pool-card group bg-white rounded-xl border border-slate-200 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex items-start gap-2.5">
+              <%- include('partials/provider-icon', { type: p.type, size: 20 }) %>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="text-sm font-semibold truncate" title="<%= p.name %>"><%= p.name %></h2>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wide"><%= p.type %></span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5 font-mono truncate" title="<%= p.base_url %>"><%= p.base_url %></p>
+              </div>
+            </div>
+            <span class="pool-status <%= statusTone %>"><%= s.active %>/<%= s.total %></span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 mt-3">
+            <div class="pool-metric">
+              <span>Active</span>
+              <strong class="text-emerald-600 text-sm"><%= s.active %></strong>
+            </div>
+            <div class="pool-metric">
+              <span>Disabled</span>
+              <strong class="text-sm"><%= s.disabled %></strong>
+            </div>
+            <div class="pool-metric">
+              <span>Exhausted</span>
+              <strong class="text-rose-600 text-sm"><%= s.exhausted %></strong>
+            </div>
+            <div class="pool-metric">
+              <span>Errors</span>
+              <strong class="text-amber-600 text-sm"><%= s.error %></strong>
+            </div>
+          </div>
+
+          <% if (hasCredits) { %>
+            <div class="mt-3">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                <span>Credits</span>
+                <span class="font-mono"><%= s.creditsCurrent %> / <%= s.creditsLimit %></span>
+              </div>
+              <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="account-credit-bar" style="width:<%= item.creditPct %>%"></div>
+              </div>
+            </div>
+          <% } %>
+
+          <% if (p.type === 'codex' && (item.codexAvgPrimary !== null || item.codexAvgSecondary !== null)) {
+               function codexPoolReset(sec) {
+                 if (!sec) return '';
+                 const diff = Number(sec) - Math.floor(Date.now() / 1000);
+                 if (!Number.isFinite(diff) || diff <= 0) return '';
+                 if (diff < 3600) return 'resets in ' + Math.floor(diff / 60) + 'm';
+                 if (diff < 86400) return 'resets in ' + Math.floor(diff / 3600) + 'h';
+                 return 'resets in ' + Math.floor(diff / 86400) + 'd';
+               }
+          %>
+            <div class="mt-3 space-y-2">
+              <% if (item.codexAvgPrimary !== null) { %>
+                <div>
+                  <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                    <span>5h (avg)</span>
+                    <span class="font-mono"><%= item.codexAvgPrimary %>%<%= item.codexNextPrimaryReset ? ' · ' + codexPoolReset(item.codexNextPrimaryReset) : '' %></span>
+                  </div>
+                  <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="account-credit-bar" style="width:<%= item.codexAvgPrimary %>%"></div>
+                  </div>
+                </div>
+              <% } %>
+              <% if (item.codexAvgSecondary !== null) { %>
+                <div>
+                  <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                    <span>Weekly (avg)</span>
+                    <span class="font-mono"><%= item.codexAvgSecondary %>%<%= item.codexNextSecondaryReset ? ' · ' + codexPoolReset(item.codexNextSecondaryReset) : '' %></span>
+                  </div>
+                  <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="account-credit-bar" style="width:<%= item.codexAvgSecondary %>%"></div>
+                  </div>
+                </div>
+              <% } %>
+            </div>
+          <% } %>
+
+          <div class="flex flex-wrap gap-1 mt-3">
+            <% [['free', s.free], ['plus', s.plus || 0], ['pro', s.pro], ['team', s.team || 0], ['business', s.business || 0], ['power', s.power], ['enterprise', s.enterprise], ['unknown', s.unknown]].forEach(([tier, count]) => { %>
+              <% if (count > 0) { %>
+                <span class="tier-chip tier-<%= tier %> text-[10px] px-1.5 py-0.5"><%= tier %> <%= count %></span>
+              <% } %>
+            <% }) %>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
+            <a href="/accounts/<%= p.id %>" class="text-brand-600 text-xs hover:underline">Open provider accounts</a>
+            <div class="flex flex-wrap justify-end gap-2">
+              <% if (p.type === 'kiro') { %>
+                <button type="button" onclick="openFilterModal()" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs px-3 py-1.5 rounded-md">Filter emails</button>
+                <button type="button" onclick="openBatchModal()" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs px-3 py-1.5 rounded-md">Batch login</button>
+              <% } %>
+              <button
+                type="button"
+                onclick="openAccountModal(<%= p.id %>)"
+                class="bg-brand-500 hover:bg-brand-600 text-white text-xs px-3 py-1.5 rounded-md"
+              >
+                <%= p.type === 'codex' ? '+ Add Codex account' : p.type === 'kiro' ? '+ Add Kiro account' : p.type === 'openai' ? '+ Add OpenAI account' : '+ Add account' %>
+              </button>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  </main>
+</div>
+
+<%- include('partials/account-modals', { providers }) %>
+<script>
+  // Expose every provider (id, type, name) so accounts.js can dispatch to the
+  // correct modal regardless of how many providers of the same type exist.
+  window.__PROVIDERS__ = <%- JSON.stringify(providers.map(p => ({ id: p.id, type: p.type, name: p.name }))) %>;
+</script>
+<script src="/js/accounts.js"></script>
+</body>
+</html>

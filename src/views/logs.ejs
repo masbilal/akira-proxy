@@ -1,0 +1,109 @@
+<%- include('partials/head', { title: 'Logs · dapuranmu' }) %>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main
+    id="logsPage"
+    class="flex-1 p-8"
+    data-page="<%= page %>"
+    data-pages="<%= pages %>"
+    data-per-page="<%= perPage %>"
+    data-latest-id="<%= latestId %>"
+  >
+    <div class="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Request Logs</h1>
+        <p class="text-sm text-slate-500 mt-1">Paginated request history with token input/output statistics.</p>
+      </div>
+      <div class="text-right">
+        <span id="logsPageBadge" class="block text-xs text-slate-500">Page <%= page %> of <%= pages %></span>
+        <span id="logsLiveStatus" class="block text-xs text-emerald-600 mt-1">Live refresh on</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 xl:grid-cols-6 gap-3 mb-6">
+      <div class="pool-metric"><span>Requests</span><strong id="logsStatsRequests"><%= stats.requests %></strong></div>
+      <div class="pool-metric"><span>Token In</span><strong id="logsStatsIn"><%= stats.prompt_tokens %></strong></div>
+      <div class="pool-metric"><span>Token Out</span><strong id="logsStatsOut"><%= stats.completion_tokens %></strong></div>
+      <div class="pool-metric"><span>Total Tokens</span><strong id="logsStatsTotal"><%= stats.total_tokens %></strong></div>
+      <div class="pool-metric"><span>Errors</span><strong id="logsStatsErrors" class="text-rose-600"><%= stats.errors || 0 %></strong></div>
+      <div class="pool-metric"><span>Avg Latency</span><strong id="logsStatsLatency"><%= Math.round(stats.avg_duration_ms || 0) %>ms</strong></div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        <span id="logsShowingSummary">Showing <%= rows.length %> of <%= total %> requests</span>
+        <span id="logsPageTokens">Page tokens: <%= pageStats.prompt_tokens %> in / <%= pageStats.completion_tokens %> out / <%= pageStats.total_tokens %> total</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="text-xs text-slate-500 bg-slate-50">
+          <tr>
+            <th class="text-left font-medium px-3 py-2">Time</th>
+            <th class="text-left font-medium px-3 py-2">Provider</th>
+            <th class="text-left font-medium px-3 py-2">Model</th>
+            <th class="text-left font-medium px-3 py-2">Status</th>
+            <th class="text-left font-medium px-3 py-2">In</th>
+            <th class="text-left font-medium px-3 py-2">Out</th>
+            <th class="text-left font-medium px-3 py-2">Total</th>
+            <th class="text-left font-medium px-3 py-2">Dur</th>
+            <th class="text-left font-medium px-3 py-2">Error</th>
+          </tr>
+        </thead>
+        <tbody id="logsTableBody">
+          <% if (!rows.length) { %>
+            <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400">No requests logged.</td></tr>
+          <% } %>
+          <% rows.forEach(r => { %>
+            <tr class="border-t border-slate-100 cursor-pointer log-row" data-log='<%- JSON.stringify(r).replace(/'/g, '&#39;') %>'>
+              <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap"><%= formatDate(r.created_at) %></td>
+              <td class="px-3 py-2 text-xs"><%= r.provider_name || '-' %></td>
+              <td class="px-3 py-2 text-xs font-mono"><%= r.model_name || '-' %></td>
+              <td class="px-3 py-2 text-xs <%= (r.status_code||0) >= 400 ? 'text-rose-600' : 'text-emerald-600' %>"><%= r.status_code || '-' %></td>
+              <td class="px-3 py-2 text-xs text-slate-500"><%= r.prompt_tokens || 0 %></td>
+              <td class="px-3 py-2 text-xs text-slate-500"><%= r.completion_tokens || 0 %></td>
+              <td class="px-3 py-2 text-xs text-slate-500"><%= r.total_tokens || 0 %></td>
+              <td class="px-3 py-2 text-xs text-slate-500"><%= r.duration_ms %>ms</td>
+              <td class="px-3 py-2 text-xs text-rose-500 max-w-xs truncate"><%= r.error || '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex items-center justify-between mt-6 text-sm">
+      <div id="logsPaginationLabel" class="text-slate-500">Page <%= page %> of <%= pages %></div>
+      <div id="logsPagerLinks" class="flex gap-2">
+        <% if (page > 1) { %>
+          <a id="logsPrevLink" class="border border-slate-300 rounded-md px-3 py-2" href="/logs?page=<%= page - 1 %>">Previous</a>
+        <% } %>
+        <% if (page < pages) { %>
+          <a id="logsNextLink" class="border border-slate-300 rounded-md px-3 py-2" href="/logs?page=<%= page + 1 %>">Next</a>
+        <% } %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="logModal" class="fixed inset-0 bg-slate-900/40 hidden items-start justify-center p-6 z-50 overflow-y-auto">
+  <div class="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 my-8 max-h-[88vh] overflow-y-auto">
+    <div class="flex items-start justify-between gap-4 mb-4">
+      <div>
+        <h2 class="text-lg font-semibold">Request detail</h2>
+        <div id="logModalSubtitle" class="text-xs text-slate-500 mt-1"></div>
+      </div>
+      <button onclick="closeLogModal()" class="text-slate-400 hover:text-white text-sm">Close</button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <div class="pool-metric"><span>Token In</span><strong id="detailTokenIn">0</strong></div>
+      <div class="pool-metric"><span>Token Out</span><strong id="detailTokenOut">0</strong></div>
+      <div class="pool-metric"><span>Total</span><strong id="detailTokenTotal">0</strong></div>
+    </div>
+
+    <div id="logDetailGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4"></div>
+    <pre id="logDetailJson" class="max-h-[42vh] overflow-auto rounded-md border border-slate-200 p-4 text-xs whitespace-pre-wrap"></pre>
+  </div>
+</div>
+
+<script src="/js/logs.js"></script>
+</body>
+</html>

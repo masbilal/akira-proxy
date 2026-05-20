@@ -1,0 +1,1 @@
+ALTER TABLE models ADD COLUMN account_tier TEXT NOT NULL DEFAULT 'any';

@@ -1,0 +1,156 @@
+<%- include('partials/head', { title: 'Playground · dapuranmu' }) %>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Playground</h1>
+        <p class="text-sm text-slate-500">Send a test request to any configured model through the proxy.</p>
+      </div>
+    </div>
+
+    <% if (!apiKeys.length || !models.length) { %>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-900">
+        <% if (!models.length) { %>
+          <p>No models are mapped yet. Add a <a href="/providers" class="underline">provider</a> and a <a href="/models" class="underline">model</a> first.</p>
+        <% } else if (!apiKeys.length) { %>
+          <p>No API keys yet. Generate one on the <a href="/api-keys" class="underline">API Keys</a> page first.</p>
+        <% } %>
+      </div>
+    <% } else { %>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Controls -->
+      <div class="lg:col-span-1 bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Model</label>
+          <select id="model" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono">
+            <% models.forEach(m => { %>
+              <option value="<%= m.name %>"><%= m.name %> → <%= m.provider_name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">API mode</label>
+          <select id="apiMode" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="chat">chat.completions</option>
+            <option value="responses">responses</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">API Key (router)</label>
+          <select id="apiKeyId" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <% apiKeys.forEach(k => { %>
+              <option value="<%= k.id %>"><%= k.name %> (<%= k.key_prefix %>…)</option>
+            <% }) %>
+          </select>
+          <p class="text-xs text-slate-400 mt-1">
+            The full key isn't stored server-side. For <strong>remote</strong> tests, paste it below.
+          </p>
+          <input id="apiKeyRaw" placeholder="dpm-... (optional, for remote endpoint test)"
+                 class="w-full mt-2 border border-slate-300 rounded-md px-3 py-2 text-xs font-mono" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">System / instructions</label>
+          <textarea id="system" rows="2" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+                    placeholder="(optional)">You are a helpful assistant.</textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Temperature</label>
+          <input id="temperature" type="number" step="0.1" min="0" max="2" value="0.7"
+                 class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Max tokens</label>
+          <input id="maxTokens" type="number" min="1" max="8192" value="512"
+                 class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Extra JSON</label>
+          <textarea id="extraJson" rows="8" class="w-full border border-slate-300 rounded-md px-3 py-2 text-xs font-mono"
+                    placeholder='{"tools":[{"type":"function","name":"read_file","description":"Read a file","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}]}'></textarea>
+          <p class="text-xs text-slate-400 mt-1">
+            Optional fields merged into the request body. Useful for <code>tools</code>, <code>previous_response_id</code>, <code>include</code>, or MCP settings.
+          </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 p-4 space-y-3 bg-slate-50">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600">Vision input</label>
+              <p class="text-xs text-slate-400 mt-1">Optional image via URL/data URL or local file. Works for both chat and responses on compatible upstream models.</p>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Image URL / data URL</label>
+            <input id="imageUrl" placeholder="https://... or data:image/png;base64,..."
+                   class="w-full border border-slate-300 rounded-md px-3 py-2 text-xs font-mono" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Image file</label>
+            <input id="imageFile" type="file" accept="image/*"
+                   class="w-full border border-slate-300 rounded-md px-3 py-2 text-xs bg-white" />
+            <div id="imageFileMeta" class="text-xs text-slate-400 mt-1">No file selected.</div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Image detail</label>
+            <select id="imageDetail" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+              <option value="auto">auto</option>
+              <option value="low">low</option>
+              <option value="high">high</option>
+            </select>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="clearVisionBtn" type="button" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm bg-white border border-slate-300">Clear image</button>
+          </div>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm">
+          <input id="stream" type="checkbox" checked /> Stream response (SSE)
+        </label>
+
+        <div class="flex gap-2 pt-2">
+          <button id="sendBtn" class="flex-1 bg-brand-500 hover:bg-brand-600 text-white text-sm py-2 rounded-md">Send</button>
+          <button id="clearBtn" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Clear</button>
+        </div>
+      </div>
+
+      <!-- Conversation -->
+      <div class="lg:col-span-2 flex flex-col gap-4">
+        <div class="bg-white rounded-xl border border-slate-200 flex-1 flex flex-col min-h-[500px]">
+          <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-medium text-sm">Conversation</h2>
+            <span id="status" class="text-xs text-slate-400">ready</span>
+          </div>
+          <div id="messages" class="flex-1 overflow-y-auto p-5 space-y-4 text-sm"></div>
+          <div class="border-t border-slate-200 p-3 flex gap-2">
+            <input id="userInput" placeholder="Type a message or attach an image... (Enter to send)"
+                   class="flex-1 border border-slate-300 rounded-md px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        <details class="bg-white rounded-xl border border-slate-200">
+          <summary class="px-5 py-3 cursor-pointer font-medium text-sm flex items-center justify-between">
+            <span>Last response details</span>
+            <span id="detailsTimer" class="text-xs text-slate-400"></span>
+          </summary>
+          <pre id="details" class="px-5 pb-4 text-xs overflow-x-auto text-slate-700 whitespace-pre-wrap"></pre>
+        </details>
+      </div>
+    </div>
+    <% } %>
+  </main>
+</div>
+
+<script src="/js/playground.js"></script>
+</body>
+</html>

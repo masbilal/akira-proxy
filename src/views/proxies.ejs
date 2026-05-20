@@ -1,0 +1,218 @@
+<%- include('partials/head', { title: 'Proxies · dapuranmu' }) %>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Proxies</h1>
+        <p class="text-sm text-slate-500 mt-1">HTTP/HTTPS/SOCKS5 proxies for providers and accounts. Health-monitored and auto-rotated.</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="testAllProxies()" class="bg-slate-700 hover:bg-slate-800 text-white text-sm px-4 py-2 rounded-md">
+          ⚡ Test All
+        </button>
+        <button onclick="openProxyModal()" class="bg-brand-500 hover:bg-brand-600 text-white text-sm px-4 py-2 rounded-md">
+          + Add proxy
+        </button>
+      </div>
+    </div>
+
+    <!-- Auto-Test Settings -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-semibold">Auto-Test Settings</h2>
+          <p class="text-xs text-slate-500 mt-1">Configure automatic health checks for proxies</p>
+        </div>
+        <button onclick="saveProxySettings()" class="bg-brand-500 hover:bg-brand-600 text-white text-xs px-3 py-1.5 rounded-md">
+          Save Settings
+        </button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">Auto Test</label>
+          <select id="setting-auto_test_enabled" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="0">Disabled</option>
+            <option value="1">Enabled</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">Test Interval (minutes)</label>
+          <input type="number" id="setting-auto_test_interval_min" min="1" value="30" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">Health Threshold (ms)</label>
+          <input type="number" id="setting-health_threshold_ms" min="100" value="5000" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">Max Fail Count</label>
+          <input type="number" id="setting-max_fail_count" min="1" value="3" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature Flags (global) -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="text-lg font-semibold">Proxy Features</h2>
+        <button onclick="openProviderOverridesModal()" class="text-xs text-brand-600 hover:underline">Per-provider overrides →</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Toggle which operations route through proxies. Per-provider overrides can be configured separately.</p>
+      <div id="featureFlagsList" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="text-sm text-slate-400 col-span-full">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500">Total</div>
+        <div id="statTotal" class="text-2xl font-semibold mt-1">—</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500">Healthy</div>
+        <div id="statHealthy" class="text-2xl font-semibold text-emerald-600 mt-1">—</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500">Unhealthy</div>
+        <div id="statUnhealthy" class="text-2xl font-semibold text-rose-600 mt-1">—</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-xs text-slate-500">Disabled</div>
+        <div id="statDisabled" class="text-2xl font-semibold text-slate-400 mt-1">—</div>
+      </div>
+    </div>
+
+    <!-- Proxy List -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-200">
+        <h2 class="text-lg font-semibold">Proxy List</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs text-slate-600">
+            <tr>
+              <th class="text-left px-4 py-3 font-medium">Name</th>
+              <th class="text-left px-4 py-3 font-medium">Connection</th>
+              <th class="text-left px-4 py-3 font-medium">Protocol</th>
+              <th class="text-left px-4 py-3 font-medium">Status</th>
+              <th class="text-left px-4 py-3 font-medium">Latency</th>
+              <th class="text-left px-4 py-3 font-medium">Success/Fail</th>
+              <th class="text-left px-4 py-3 font-medium">Last Test</th>
+              <th class="text-right px-4 py-3 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="proxyList" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add/Edit Proxy Modal -->
+<div id="proxyModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-6 z-50">
+  <div class="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+    <h2 id="proxyModalTitle" class="text-lg font-semibold mb-4">Add Proxy</h2>
+    <form id="proxyForm" class="space-y-3 text-sm" onsubmit="event.preventDefault(); submitProxy();">
+      <input type="hidden" id="proxyId" />
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Name *</label>
+        <input id="proxyName" required class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="e.g. US Residential 1" />
+      </div>
+      <div id="proxyUrlGroup">
+        <label class="block text-xs text-slate-600 mb-1">Proxy URL *</label>
+        <input id="proxyUrl" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono" placeholder="http://username:password@host:port" />
+        <p class="text-xs text-slate-500 mt-1">Format: <code>http://user:pass@host:port</code> · Supports http, https, socks5</p>
+      </div>
+      <!-- Edit mode fields (hidden in add mode) -->
+      <div id="proxyEditFields" class="hidden space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Host *</label>
+            <input id="proxyHost" class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Port *</label>
+            <input id="proxyPort" type="number" min="1" max="65535" class="w-full border border-slate-300 rounded-md px-3 py-2" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Username</label>
+            <input id="proxyUsername" class="w-full border border-slate-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Password</label>
+            <input id="proxyPassword" type="text" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Leave blank to keep current" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">Protocol</label>
+          <select id="proxyProtocol" class="w-full border border-slate-300 rounded-md px-3 py-2">
+            <option value="http">HTTP</option>
+            <option value="https">HTTPS</option>
+            <option value="socks5">SOCKS5</option>
+          </select>
+        </div>
+        <div>
+          <label class="inline-flex items-center gap-2">
+            <input id="proxyEnabled" type="checkbox" class="rounded" />
+            <span class="text-sm">Enabled</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Notes</label>
+        <textarea id="proxyNotes" rows="2" class="w-full border border-slate-300 rounded-md px-3 py-2" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeProxyModal()" class="px-4 py-2 text-sm rounded-md border border-slate-300 hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="px-4 py-2 text-sm rounded-md bg-brand-500 hover:bg-brand-600 text-white">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Per-Provider Overrides Modal -->
+<div id="overridesModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center p-6 z-50">
+  <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-semibold">Per-Provider Proxy Overrides</h2>
+        <p class="text-xs text-slate-500 mt-1">Override global feature flags for specific providers. Leave on "Global" to use the global setting.</p>
+      </div>
+      <button onclick="closeOverridesModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+    </div>
+    <div class="mb-4">
+      <label class="block text-xs text-slate-600 mb-1">Select Provider</label>
+      <select id="overrideProviderSelect" class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm" onchange="loadProviderOverrides()">
+        <option value="">— Choose a provider —</option>
+      </select>
+    </div>
+    <div id="overridesContent" class="hidden">
+      <table class="w-full text-sm border border-slate-200 rounded-md overflow-hidden">
+        <thead class="bg-slate-50 text-xs text-slate-600">
+          <tr>
+            <th class="text-left px-3 py-2 font-medium">Feature</th>
+            <th class="text-left px-3 py-2 font-medium">Global</th>
+            <th class="text-left px-3 py-2 font-medium">Override</th>
+            <th class="text-left px-3 py-2 font-medium">Pinned Proxy</th>
+            <th class="text-left px-3 py-2 font-medium">Effective</th>
+          </tr>
+        </thead>
+        <tbody id="overridesTable" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer" class="fixed top-4 right-4 z-[60] flex flex-col gap-2"></div>
+
+<script src="/js/proxies.js"></script>
+</body>
+</html>

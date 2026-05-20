@@ -1,0 +1,33 @@
+{
+  "name": "dapuranmu",
+  "version": "0.1.0",
+  "description": "AI proxy router with OpenAI-compatible endpoint, multi-provider management dashboard",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning src/server.js",
+    "dev": "node --no-warnings=ExperimentalWarning src/server.js",
+    "dev:watch": "node --no-warnings=ExperimentalWarning --watch-path=src --watch-path=scripts src/server.js",
+    "migrate": "node --no-warnings=ExperimentalWarning src/db/migrate.js",
+    "seed": "node --no-warnings=ExperimentalWarning src/db/seed.js",
+    "login:kiro": "node --no-warnings=ExperimentalWarning scripts/login-kiro.js",
+    "login:codex": "node --no-warnings=ExperimentalWarning scripts/login-codex.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "cbor-x": "^1.6.4",
+    "dotenv": "16.4.5",
+    "ejs": "3.1.10",
+    "express": "4.21.1",
+    "express-session": "1.18.1",
+    "memorystore": "1.6.7",
+    "morgan": "1.10.0",
+    "mysql2": "^3.22.3",
+    "patchright": "^1.59.4",
+    "playwright": "^1.59.1",
+    "socks": "^2.8.9",
+    "undici": "^7.16.0"
+  }
+}

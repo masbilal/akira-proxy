@@ -1,0 +1,24 @@
+<aside class="w-60 shrink-0 bg-slate-900 text-slate-100 min-h-screen p-5 flex flex-col">
+  <div class="flex items-center gap-2 mb-8">
+    <div class="w-9 h-9 rounded-lg bg-brand-500 flex items-center justify-center font-bold">D</div>
+    <div>
+      <div class="font-semibold leading-tight">dapuranmu</div>
+      <div class="text-xs text-slate-400">AI proxy router</div>
+    </div>
+  </div>
+  <nav class="flex-1 flex flex-col gap-1 text-sm">
+    <a href="/" class="px-3 py-2 rounded-md <%= active==='overview' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Overview</a>
+    <a href="/providers" class="px-3 py-2 rounded-md <%= active==='providers' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Providers</a>
+    <a href="/accounts" class="px-3 py-2 rounded-md <%= active==='accounts' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Accounts</a>
+    <a href="/models" class="px-3 py-2 rounded-md <%= active==='models' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Models</a>
+    <a href="/api-keys" class="px-3 py-2 rounded-md <%= active==='api-keys' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">API Keys</a>
+    <a href="/proxies" class="px-3 py-2 rounded-md <%= active==='proxies' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Proxies</a>
+    <a href="/chat" class="px-3 py-2 rounded-md <%= active==='chat' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Chat</a>
+    <a href="/playground" class="px-3 py-2 rounded-md <%= active==='playground' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Playground</a>
+    <a href="/workers" class="px-3 py-2 rounded-md <%= active==='workers' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Workers</a>
+    <a href="/logs" class="px-3 py-2 rounded-md <%= active==='logs' ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800' %>">Logs</a>
+  </nav>
+  <form action="/logout" method="POST" class="mt-6">
+    <button class="w-full text-left text-xs text-slate-400 hover:text-white px-3 py-2">Sign out</button>
+  </form>
+</aside>

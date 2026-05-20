@@ -1,0 +1,214 @@
+<%- include('partials/head', { title: 'Chat · dapuranmu' }) %>
+<style>
+  /* Markdown rendering styles */
+  .prose { line-height: 1.7; }
+  .prose p { margin: 0.75em 0; }
+  .prose h1, .prose h2, .prose h3, .prose h4 { margin: 1em 0 0.5em; font-weight: 600; }
+  .prose h1 { font-size: 1.5em; }
+  .prose h2 { font-size: 1.25em; }
+  .prose h3 { font-size: 1.1em; }
+  .prose ul, .prose ol { margin: 0.75em 0; padding-left: 1.5em; }
+  .prose li { margin: 0.25em 0; }
+  .prose code { 
+    background: rgba(255,255,255,0.1); 
+    padding: 0.15em 0.35em; 
+    border-radius: 4px; 
+    font-size: 0.9em;
+    font-family: 'Fira Code', 'SF Mono', monospace;
+  }
+  .prose pre { 
+    margin: 1em 0; 
+    background: #1e1e2e; 
+    border-radius: 8px; 
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .prose pre code { 
+    display: block; 
+    padding: 1em; 
+    overflow-x: auto;
+    background: transparent;
+    font-size: 0.85em;
+    line-height: 1.5;
+  }
+  .prose blockquote {
+    border-left: 3px solid #06b6d4;
+    padding-left: 1em;
+    margin: 1em 0;
+    color: #94a3b8;
+  }
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
+  .prose th, .prose td {
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 0.5em 0.75em;
+    text-align: left;
+  }
+  .prose th {
+    background: rgba(255,255,255,0.05);
+    font-weight: 600;
+  }
+  .prose a { color: #06b6d4; text-decoration: underline; }
+  .prose hr { margin: 1.5em 0; border-color: rgba(255,255,255,0.2); }
+  
+  /* Code block header with copy button */
+  .code-block-wrapper { position: relative; }
+  .code-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5em 1em;
+    background: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.75em;
+    color: #64748b;
+  }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #94a3b8;
+    padding: 0.25em 0.75em;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+  
+  /* Chat message animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .message-enter { animation: fadeIn 0.3s ease-out; }
+  
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+  }
+  .typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background: #64748b;
+    border-radius: 50%;
+    animation: bounce 1.4s infinite ease-in-out;
+  }
+  .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+  .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+  }
+</style>
+<div class="flex h-screen">
+  <%- include('partials/sidebar') %>
+  
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Sidebar: Session List -->
+    <div class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+      <div class="p-4 border-b border-zinc-800">
+        <button id="newChatBtn" class="w-full bg-brand-500 hover:bg-brand-600 text-white py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          New Chat
+        </button>
+      </div>
+      
+      <div class="p-3 border-b border-zinc-800">
+        <select id="modelSelect" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm">
+          <% models.forEach(m => { %>
+            <option value="<%= m.name %>"><%= m.display_name || m.name %></option>
+          <% }) %>
+        </select>
+        <select id="apiKeySelect" class="w-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs">
+          <option value="">No API Key</option>
+          <% apiKeys.forEach(k => { %>
+            <option value="<%= k.id %>"><%= k.name %> (<%= k.key_prefix %>...)</option>
+          <% }) %>
+        </select>
+      </div>
+      
+      <div id="sessionList" class="flex-1 overflow-y-auto p-2 space-y-1">
+        <% sessions.forEach(s => { %>
+          <div class="session-item group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors" data-uuid="<%= s.uuid %>">
+            <svg class="w-4 h-4 text-zinc-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+            </svg>
+            <span class="flex-1 text-sm truncate"><%= s.title %></span>
+            <span class="text-xs text-zinc-600"><%= s.message_count || 0 %></span>
+            <button class="delete-session opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all" data-uuid="<%= s.uuid %>">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        <% }) %>
+        <% if (sessions.length === 0) { %>
+          <div class="text-center text-zinc-500 text-sm py-8">No conversations yet</div>
+        <% } %>
+      </div>
+    </div>
+    
+    <!-- Main Chat Area -->
+    <div class="flex-1 flex flex-col bg-zinc-950">
+      <!-- Header -->
+      <div class="h-14 border-b border-zinc-800 flex items-center justify-between px-6">
+        <h1 id="chatTitle" class="font-medium">New Chat</h1>
+        <div id="chatStatus" class="text-xs text-zinc-500">Ready</div>
+      </div>
+      
+      <!-- Messages Area -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto">
+        <div id="messages" class="max-w-3xl mx-auto py-6 px-4 space-y-6">
+          <!-- Welcome message -->
+          <div class="text-center py-20">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-500/20 flex items-center justify-center">
+              <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+              </svg>
+            </div>
+            <h2 class="text-xl font-medium text-zinc-300 mb-2">Start a new conversation</h2>
+            <p class="text-sm text-zinc-500">Select a model and start chatting</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Input Area -->
+      <div class="border-t border-zinc-800 p-4">
+        <div class="max-w-3xl mx-auto">
+          <div class="relative">
+            <textarea 
+              id="userInput" 
+              placeholder="Type your message... (Shift+Enter for new line)"
+              rows="1"
+              class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 pr-12 text-sm resize-none focus:outline-none focus:border-brand-500 transition-colors"
+            ></textarea>
+            <button id="sendBtn" class="absolute right-2 bottom-2 p-2 bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+              </svg>
+            </button>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-xs text-zinc-500">
+            <span id="tokenCount">0 tokens</span>
+            <span>Press Enter to send, Shift+Enter for new line</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Highlight.js for syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+
+<script src="/js/chat.js"></script>

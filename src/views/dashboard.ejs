@@ -1,0 +1,137 @@
+<%- include('partials/head', { title: 'Overview · dapuranmu' }) %>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Overview</h1>
+        <p class="text-sm text-slate-500 mt-1">Account health by provider and token usage history.</p>
+      </div>
+      <a href="/accounts" class="border border-slate-300 rounded-md px-3 py-2 text-sm">Manage accounts</a>
+    </div>
+
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+      <div class="pool-metric"><span>Providers</span><strong><%= stats.providers %></strong></div>
+      <div class="pool-metric"><span>Models</span><strong><%= stats.models %></strong></div>
+      <div class="pool-metric"><span>API keys</span><strong><%= stats.apiKeys %></strong></div>
+      <div class="pool-metric"><span>Requests 24h</span><strong><%= stats.reqs24 %></strong></div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-5 mb-6">
+      <section class="bg-white rounded-xl border border-slate-200 p-5">
+        <div class="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="font-medium">Token usage</h2>
+            <p class="text-xs text-slate-500 mt-1">Total tokens per model over time.</p>
+          </div>
+          <div class="flex gap-1 text-xs">
+            <% [['1d','1 day'], ['7d','7 day'], ['14d','14 day'], ['30d','30 day']].forEach(([key, label]) => { %>
+              <button class="chart-range-btn border border-slate-300 rounded-md px-2 py-1" data-range="<%= key %>"><%= label %></button>
+            <% }) %>
+          </div>
+        </div>
+        <div class="relative h-72" id="tokenChartWrap">
+          <canvas id="tokenChart" class="w-full h-full"></canvas>
+          <div id="tokenTooltip" class="token-chart-tooltip hidden"></div>
+        </div>
+        <div id="tokenLegend" class="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-400 mt-4"></div>
+      </section>
+
+      <section class="bg-white rounded-xl border border-slate-200 p-5">
+        <h2 class="font-medium">Account totals</h2>
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <div class="pool-metric"><span>Active</span><strong class="text-emerald-600"><%= accountStats.active %></strong></div>
+          <div class="pool-metric"><span>Exhausted</span><strong class="text-rose-600"><%= accountStats.exhausted %></strong></div>
+          <div class="pool-metric"><span>Free</span><strong><%= accountStats.free %></strong></div>
+          <div class="pool-metric"><span>Pro</span><strong class="text-amber-600"><%= accountStats.pro %></strong></div>
+        </div>
+        <div class="mt-5">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+            <span>Credits used</span>
+            <span><%= accountStats.creditsLimit ? `${accountStats.creditsCurrent} / ${accountStats.creditsLimit}` : 'unknown' %></span>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div class="account-credit-bar" style="width:<%= accountStats.creditPct %>%"></div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-5">
+          <% [
+               ['free', accountStats.free],
+               ['plus', accountStats.plus],
+               ['pro', accountStats.pro],
+               ['team', accountStats.team],
+               ['business', accountStats.business],
+               ['edu', accountStats.edu],
+               ['power', accountStats.power],
+               ['enterprise', accountStats.enterprise],
+               ['unknown', accountStats.unknown],
+             ].forEach(([tier, count]) => { %>
+            <% if (count > 0) { %>
+              <span class="tier-chip tier-<%= tier %>"><%= tier %>: <%= count %></span>
+            <% } %>
+          <% }) %>
+        </div>
+      </section>
+    </div>
+
+    <section class="bg-white rounded-xl border border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-medium">Providers</h2>
+        <a href="/providers" class="text-xs text-brand-600 hover:underline">View providers</a>
+      </div>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <% providerSummaries.forEach((item) => {
+             const p = item.provider;
+             const s = item.stats;
+        %>
+          <a href="/accounts/<%= p.id %>" class="provider-pool-card bg-white rounded-xl border border-slate-200 p-4 block">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex items-start gap-3">
+                <%- include('partials/provider-icon', { type: p.type, size: 22 }) %>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-semibold truncate"><%= p.name %></h3>
+                    <span class="tier-chip tier-enterprise"><%= p.type %></span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1"><%= s.total %> accounts · <%= s.active %> active · <%= s.exhausted %> exhausted</p>
+                </div>
+              </div>
+              <span class="pool-status <%= s.active ? 'pool-ok' : 'pool-muted' %>"><%= p.enabled ? 'enabled' : 'disabled' %></span>
+            </div>
+            <div class="mt-4">
+              <div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+                <span>Credits</span>
+                <span><%= s.creditsLimit ? `${s.creditsCurrent} / ${s.creditsLimit}` : 'unknown' %></span>
+              </div>
+              <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="account-credit-bar" style="width:<%= item.creditPct %>%"></div>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-4">
+              <% [
+                   ['free', s.free],
+                   ['plus', s.plus],
+                   ['pro', s.pro],
+                   ['team', s.team],
+                   ['business', s.business],
+                   ['edu', s.edu],
+                   ['power', s.power],
+                   ['enterprise', s.enterprise],
+                 ].forEach(([tier, count]) => { %>
+                <% if (count > 0) { %>
+                  <span class="tier-chip tier-<%= tier %>"><%= tier %> <%= count %></span>
+                <% } %>
+              <% }) %>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  window.__TOKEN_HISTORY__ = <%- JSON.stringify(tokenHistory) %>;
+</script>
+<script src="/js/dashboard.js"></script>
+</body>
+</html>

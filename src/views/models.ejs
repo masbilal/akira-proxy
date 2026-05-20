@@ -1,0 +1,181 @@
+<%- include('partials/head', { title: 'Models · dapuranmu' }) %>
+<%
+function eligibleAccountCount(stats, tier) {
+  if (tier === 'free') return (stats.free || 0) + (stats.pro || 0);
+  if (tier === 'pro') return stats.pro || 0;
+  if (tier === 'power') return stats.power || 0;
+  if (tier === 'enterprise') return stats.enterprise || 0;
+  return stats.active || 0;
+}
+function tierLabel(tier) {
+  if (tier === 'free') return 'Free';
+  if (tier === 'pro') return 'Pro';
+  if (tier === 'power') return 'Power';
+  if (tier === 'enterprise') return 'Ent';
+  return 'Any';
+}
+%>
+<div class="flex">
+  <%- include('partials/sidebar') %>
+  <main class="flex-1 p-8">
+    <div class="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Models</h1>
+        <p class="text-sm text-slate-500 mt-1">Simple catalog of model ids exposed by the proxy.</p>
+      </div>
+      <button onclick="openModelModal()" class="bg-brand-500 hover:bg-brand-600 text-white text-sm px-4 py-2 rounded-md">+ Add model</button>
+    </div>
+
+    <% if (!grouped.length) { %>
+      <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
+        <div class="text-lg font-medium">No models mapped yet</div>
+        <p class="text-sm text-slate-500 mt-2">Add a provider model mapping to start serving `/v1/chat/completions` and `/v1/responses`.</p>
+      </div>
+    <% } else { %>
+
+      <!-- Provider tabs -->
+      <div class="model-tabs flex flex-wrap items-center gap-2 mb-5">
+        <% grouped.forEach((group, idx) => { %>
+          <button
+            type="button"
+            class="model-tab <%= idx === 0 ? 'model-tab-active' : '' %>"
+            data-provider="provider-<%= group.provider.id %>"
+          >
+            <span><%= group.provider.name %></span>
+            <span class="model-tab-count"><%= group.models.length %></span>
+          </button>
+        <% }) %>
+      </div>
+
+      <% grouped.forEach((group, idx) => { const s = group.summary.stats; %>
+        <section
+          id="provider-<%= group.provider.id %>"
+          class="model-panel bg-white rounded-xl border border-slate-200 p-5 <%= idx === 0 ? '' : 'hidden' %>"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-semibold"><%= group.provider.name %></h2>
+              <p class="text-xs text-slate-500 mt-0.5"><%= group.models.length %> models · <%= s.active %> active accounts</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="tier-chip tier-free">free <%= s.free || 0 %></span>
+              <span class="tier-chip tier-pro">pro <%= s.pro || 0 %></span>
+              <% if (s.power) { %><span class="tier-chip tier-power">power <%= s.power %></span><% } %>
+              <% if (s.enterprise) { %><span class="tier-chip tier-enterprise">ent <%= s.enterprise %></span><% } %>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <% group.models.forEach((r) => {
+                 const tier = r.account_tier || 'any';
+                 const eligible = eligibleAccountCount(s, tier);
+            %>
+              <article class="model-card group" data-model-id="<%= r.name %>">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0 flex-1">
+                    <h3 class="model-card-name"><%= r.name %></h3>
+                    <p class="model-card-sub"><%= r.upstream_model %></p>
+                  </div>
+                  <div class="model-card-actions">
+                    <button
+                      type="button"
+                      class="model-action-btn"
+                      title="Try in playground"
+                      onclick="tryInPlayground('<%= r.name %>')"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="model-action-btn"
+                      title="Copy model id"
+                      onclick="copyModelId('<%= r.name %>', this)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="model-card-chips">
+                  <span class="chip chip-muted"><%= group.provider.type %></span>
+                  <span class="chip chip-muted" title="<%= eligible %> eligible accounts">
+                    <%= eligible %> acct
+                  </span>
+                  <span class="chip chip-<%= r.enabled ? 'on' : 'off' %>">
+                    <%= r.enabled ? 'on' : 'off' %>
+                  </span>
+                  <span class="chip chip-tier-<%= tier %>"><%= tierLabel(tier) %></span>
+                </div>
+
+                <div class="model-card-edit">
+                  <button onclick='editModel(<%- JSON.stringify(r) %>)' class="model-link">Edit</button>
+                  <button onclick="deleteModel(<%= r.id %>, '<%= r.name %>')" class="model-link model-link-danger">Delete</button>
+                </div>
+              </article>
+            <% }) %>
+
+            <% if (!group.models.length) { %>
+              <div class="col-span-full text-xs text-slate-500 italic">No models mapped for this provider.</div>
+            <% } %>
+          </div>
+        </section>
+      <% }) %>
+    <% } %>
+  </main>
+</div>
+
+<div id="modelModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-6 z-50">
+  <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+    <h2 id="modelModalTitle" class="text-lg font-semibold mb-4">Add model</h2>
+    <form id="modelForm" class="space-y-3 text-sm">
+      <input type="hidden" name="id" />
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Model ID (what clients send) *</label>
+        <input name="name" required class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="claude-sonnet-4.5-pro" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Display name</label>
+        <input name="display_name" class="w-full border border-slate-300 rounded-md px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Provider *</label>
+        <select name="provider_id" required class="w-full border border-slate-300 rounded-md px-3 py-2">
+          <% providers.forEach(p => { %>
+            <option value="<%= p.id %>"><%= p.name %> (<%= p.type %>)</option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Upstream model id *</label>
+        <input name="upstream_model" required class="w-full border border-slate-300 rounded-md px-3 py-2 font-mono text-xs" placeholder="claude-sonnet-4.5" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-600 mb-1">Account tier routing</label>
+        <select name="account_tier" class="w-full border border-slate-300 rounded-md px-3 py-2">
+          <option value="any">any account</option>
+          <option value="free">free model: free or pro account</option>
+          <option value="pro">pro model: pro account only</option>
+          <option value="power">power account only</option>
+          <option value="enterprise">enterprise account only</option>
+        </select>
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="enabled" /> Enabled
+      </label>
+      <div id="modelFormError" class="text-sm text-rose-600 hidden"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModelModal()" class="px-3 py-2 rounded-md text-slate-600 hover:bg-slate-100 text-sm">Cancel</button>
+        <button class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-md text-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="/js/models.js"></script>
+</body>
+</html>

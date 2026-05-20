@@ -1,0 +1,31 @@
+<%- include('partials/head', { title: 'Login · dapuranmu' }) %>
+<div class="min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-sm p-7 border border-slate-200">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-lg bg-brand-500 text-white flex items-center justify-center font-bold">D</div>
+      <div>
+        <h1 class="font-semibold text-lg">dapuranmu</h1>
+        <p class="text-xs text-slate-500">Admin sign in</p>
+      </div>
+    </div>
+    <% if (error) { %>
+      <div class="mb-4 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3 py-2">
+        <%= error %>
+      </div>
+    <% } %>
+    <form method="POST" action="/login" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Username</label>
+        <input name="username" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" autofocus required />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Password</label>
+        <input name="password" type="password" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" required />
+      </div>
+      <button class="w-full bg-brand-500 hover:bg-brand-600 text-white font-medium py-2 rounded-md text-sm">Sign in</button>
+    </form>
+    <p class="text-xs text-slate-400 mt-5">Default creds come from <code>.env</code> (ADMIN_USERNAME / ADMIN_PASSWORD).</p>
+  </div>
+</div>
+</body>
+</html>
