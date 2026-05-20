@@ -1,7 +1,8 @@
 {
-  "name": "dapuranmu",
+  "name": "akira-proxy",
   "version": "0.1.0",
-  "description": "AI proxy router with OpenAI-compatible endpoint, multi-provider management dashboard",
+  "description": "Akira Proxy — AI proxy router with OpenAI-compatible endpoint and multi-provider management dashboard",
+  "displayName": "Akira Proxy",
   "private": true,
   "main": "src/server.js",
   "scripts": {

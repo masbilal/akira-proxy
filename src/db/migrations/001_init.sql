@@ -1,4 +1,4 @@
--- dapuranmu schema
+-- Akira Proxy schema
 -- All timestamps are unix seconds (INTEGER)
 
 CREATE TABLE IF NOT EXISTS providers (

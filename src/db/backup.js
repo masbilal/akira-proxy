@@ -21,7 +21,7 @@
  *   BACKUP_MYSQL_PORT      – MySQL port (default 3306)
  *   BACKUP_MYSQL_USER      – MySQL user (default root)
  *   BACKUP_MYSQL_PASSWORD  – MySQL password (default "")
- *   BACKUP_MYSQL_DATABASE  – MySQL database name (default dapuranmu)
+ *   BACKUP_MYSQL_DATABASE  – MySQL database name (default akira_proxy)
  *
  * Public API:
  *   start()            — begin periodic backups (also runs one initial pass
@@ -42,7 +42,7 @@ const MYSQL_CONFIG = {
   port: Number(process.env.BACKUP_MYSQL_PORT) || 3306,
   user: process.env.BACKUP_MYSQL_USER || 'root',
   password: process.env.BACKUP_MYSQL_PASSWORD || '',
-  database: process.env.BACKUP_MYSQL_DATABASE || 'dapuranmu',
+  database: process.env.BACKUP_MYSQL_DATABASE || 'akira_proxy',
   multipleStatements: true,
   charset: 'utf8mb4',
 };

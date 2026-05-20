@@ -30,7 +30,7 @@ if (process.env.KIRO_STRICT_TLS !== '1') {
 const REFRESH_URL = 'https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken';
 const Q_USAGE_BASE = 'https://q.us-east-1.amazonaws.com';
 const KIRO_GENERATE_URL = 'https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse';
-const UA = 'dapuranmu/0.1.0 (Kiro adapter)';
+const UA = 'akira-proxy/0.1.0 (Kiro adapter)';
 const KIRO_IDE_UA = 'AWS-SDK-JS/3.0.0 kiro-ide/1.0.0';
 const KIRO_AMZ_UA = 'aws-sdk-js/3.0.0 kiro-ide/1.0.0';
 const DEFAULT_CLI_PATH = process.platform === 'win32'

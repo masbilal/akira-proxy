@@ -18,7 +18,7 @@ const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 require('dotenv').config();
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'dapuranmu.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'akira-proxy.db');
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 

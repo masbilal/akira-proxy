@@ -342,16 +342,24 @@ tbody tr:hover {
   background: #f1f5f9;
   color: #64748b;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .provider-icon-kiro {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(6, 182, 212, 0.12));
-  color: #7c3aed;
+  /* SVG already paints its own gradient tile, so the wrapper stays neutral. */
+  background: transparent;
+  color: #6366f1;
 }
 
 .provider-icon-openai {
   background: #10a37f14;
   color: #10a37f;
+}
+
+.provider-icon-codex {
+  /* OpenAI Codex uses the same flower mark on a near-black tile. */
+  background: #0d0d0d;
+  color: #ffffff;
 }
 
 .stat-strip {

@@ -8,15 +8,29 @@
 %>
 <span class="provider-icon provider-icon-<%= iconType %>" style="width:<%= iconWrapSize %>px;height:<%= iconWrapSize %>px" aria-hidden="true">
   <% if (iconType === 'kiro') { %>
+    <%
+      // Kiro brand mark — rounded tile + bold "K" using the violet→indigo→cyan
+      // gradient from kiro.dev. Generic geometry rendered in our own SVG.
+      const kgId = 'akira-kiro-grad-' + iconSize;
+    %>
     <svg viewBox="0 0 24 24" width="<%= iconSize %>" height="<%= iconSize %>" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <!-- Stylized "K" with a gradient diamond accent, matching Kiro's brand silhouette. -->
       <defs>
-        <linearGradient id="kg<%= iconSize %>" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#7c3aed"/>
+        <linearGradient id="<%= kgId %>" x1="2" y1="3" x2="22" y2="21" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#8b5cf6"/>
+          <stop offset="0.55" stop-color="#6366f1"/>
           <stop offset="1" stop-color="#06b6d4"/>
         </linearGradient>
       </defs>
-      <path d="M5 3.5h2.6v7.3L14.4 3.5h3.3l-6.9 7.4 7.3 9.6h-3.4L9 13l-1.4 1.5v5.9H5V3.5z" fill="url(#kg<%= iconSize %>)"/>
+      <rect x="2" y="2" width="20" height="20" rx="5" fill="url(#<%= kgId %>)"/>
+      <path d="M8.4 6.4h2.05v4.45l4.05-4.45h2.55l-4.35 4.7 4.65 6.25h-2.55l-3.5-4.85-.85.9v3.95H8.4V6.4Z" fill="#ffffff"/>
+    </svg>
+  <% } else if (iconType === 'codex') { %>
+    <%
+      // OpenAI Codex — uses the OpenAI flower logomark in mono. Rendered in
+      // currentColor so the wrapper tint controls the appearance.
+    %>
+    <svg viewBox="0 0 24 24" width="<%= iconSize %>" height="<%= iconSize %>" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M22.28 9.84a5.87 5.87 0 0 0-.5-4.84 5.92 5.92 0 0 0-6.39-2.84A5.91 5.91 0 0 0 11.19.5a5.92 5.92 0 0 0-5.64 4.1 5.9 5.9 0 0 0-3.95 2.87 5.92 5.92 0 0 0 .73 6.94 5.88 5.88 0 0 0 .5 4.84 5.92 5.92 0 0 0 6.39 2.84A5.91 5.91 0 0 0 12.6 23.5a5.92 5.92 0 0 0 5.64-4.1 5.9 5.9 0 0 0 3.95-2.87 5.92 5.92 0 0 0-.73-6.94l.82.25Zm-8.66 12.1a4.4 4.4 0 0 1-2.82-1.02l.14-.08 4.69-2.7a.77.77 0 0 0 .39-.67v-6.6l1.98 1.15a.07.07 0 0 1 .04.05v5.47a4.4 4.4 0 0 1-4.42 4.4Zm-9.47-4.04a4.39 4.39 0 0 1-.52-2.95l.14.08 4.69 2.7a.76.76 0 0 0 .77 0l5.73-3.3v2.29a.07.07 0 0 1-.03.06l-4.74 2.73a4.4 4.4 0 0 1-6.04-1.61Zm-1.23-10.2a4.4 4.4 0 0 1 2.3-1.93v5.57a.76.76 0 0 0 .38.66l5.71 3.3-1.98 1.14a.07.07 0 0 1-.07 0L4.54 13.7a4.4 4.4 0 0 1-1.62-5.99Zm16.26 3.79-5.74-3.32 1.98-1.14a.07.07 0 0 1 .07 0l4.75 2.74a4.4 4.4 0 0 1-.66 7.93v-5.57a.77.77 0 0 0-.4-.64Zm1.97-2.97-.14-.09-4.69-2.72a.76.76 0 0 0-.77 0L9.8 8.87V6.58a.07.07 0 0 1 .03-.06l4.74-2.73a4.4 4.4 0 0 1 6.53 4.56ZM8.72 12.14 6.74 11a.07.07 0 0 1-.04-.05V5.47a4.4 4.4 0 0 1 7.21-3.39l-.14.08L9.08 4.86a.76.76 0 0 0-.39.66l.03 6.62Zm1.07-2.31 2.56-1.48 2.56 1.48v2.94l-2.56 1.48-2.56-1.48v-2.94Z"/>
     </svg>
   <% } else if (iconType === 'openai') { %>
     <svg viewBox="0 0 24 24" width="<%= iconSize %>" height="<%= iconSize %>" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

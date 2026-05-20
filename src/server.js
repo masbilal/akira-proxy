@@ -279,7 +279,7 @@ app.use((err, req, res, next) => {
     const stack = String((err && err.stack) || err || 'Unknown error');
     const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     return res.status(500).type('html').send(
-      `<!doctype html><meta charset="utf-8"><title>500 · dapuranmu</title>` +
+      `<!doctype html><meta charset="utf-8"><title>500 · Akira Proxy</title>` +
       `<style>body{background:#0b0f14;color:#e5e7eb;font:13px/1.5 ui-monospace,Consolas,Menlo,monospace;margin:0;padding:24px}h1{color:#f87171;font:600 15px system-ui;margin:0 0 6px}.meta{color:#94a3b8;margin-bottom:16px}pre{white-space:pre-wrap;word-break:break-word;background:#111827;border:1px solid #1f2937;border-radius:8px;padding:16px;overflow:auto}</style>` +
       `<h1>Internal Server Error</h1>` +
       `<div class="meta">${esc(req.method)} ${esc(req.originalUrl)}</div>` +
@@ -290,7 +290,7 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`dapuranmu listening on http://localhost:${PORT}`);
+  console.log(`Akira Proxy listening on http://localhost:${PORT}`);
   // Start the MySQL/MariaDB auto-backup (no-op if BACKUP_ENABLED=0).
   try {
     backup.start();

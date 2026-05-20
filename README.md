@@ -1,4 +1,4 @@
-# dapuranmu
+# Akira Proxy
 
 A lightweight, self-hosted AI proxy router with OpenAI-compatible endpoints
 and a management dashboard. Think of it as a tiny `9router` you can run
@@ -76,7 +76,7 @@ npm run dev:watch
 
 ```bash
 curl http://localhost:3000/v1/chat/completions \
-  -H "Authorization: Bearer dpm-XXXX" \
+  -H "Authorization: Bearer akr-XXXX" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o",
@@ -215,7 +215,7 @@ provider type and point it at the upstream base URL.
 | `SESSION_TTL_SEC` | `604800` | Admin session TTL in seconds |
 | `SESSION_PRUNE_INTERVAL_MS` | `3600000` | Interval for pruning expired admin sessions from SQLite |
 | `SESSION_SECURE_COOKIE` | `0` | Set to `1` only when serving over HTTPS |
-| `DB_PATH` | `./data/dapuranmu.db` | SQLite file location |
+| `DB_PATH` | `./data/akira-proxy.db` | SQLite file location |
 | `KIRO_API_KEY` | _(empty)_ | Enables Kiro CLI headless mode |
 | `KIRO_CLI_PATH` | auto-detect | Override path to `kiro-cli` |
 | `KIRO_RUNTIME` | `auto` | `auto`, `cli`, or `http` |
@@ -231,7 +231,7 @@ provider type and point it at the upstream base URL.
 | `BACKUP_MYSQL_PORT` | `3306` | MySQL port |
 | `BACKUP_MYSQL_USER` | `root` | MySQL user |
 | `BACKUP_MYSQL_PASSWORD` | _(empty)_ | MySQL password |
-| `BACKUP_MYSQL_DATABASE` | `dapuranmu` | Database name (auto-created if missing) |
+| `BACKUP_MYSQL_DATABASE` | `akira_proxy` | Database name (auto-created if missing) |
 | `SYNC_MODE` | `disabled` | `disabled`, `hub`, or `peer` |
 | `SYNC_NODE_ID` | auto | Stable id for this instance; auto-generated and persisted if empty |
 | `SYNC_HUB_URL` | _(empty)_ | Peer-only: base URL of the hub (`https://router.example.com`) |
@@ -263,7 +263,7 @@ created if it does not exist yet.
 Verify manually:
 
 ```powershell
-mysql -u root -h 127.0.0.1 dapuranmu -e "SELECT COUNT(*) FROM provider_accounts;"
+mysql -u root -h 127.0.0.1 akira_proxy -e "SELECT COUNT(*) FROM provider_accounts;"
 ```
 
 From the dashboard: the Workers page shows a **MySQL backup** card with
@@ -279,7 +279,7 @@ off script since the column names are intentionally identical.
 
 ## Multi-instance sync (local ↔ VPS)
 
-You can run dapuranmu on a VPS and on your local machine and have them
+You can run Akira Proxy on a VPS and on your local machine and have them
 share providers, accounts, models, and API keys automatically. The VPS
 acts as a hub; every local machine is a peer that pushes/pulls changes.
 

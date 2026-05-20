@@ -1,4 +1,4 @@
-const SAVED_KEYS_STORAGE = 'dapuranmuRecentKeys';
+const SAVED_KEYS_STORAGE = 'akiraProxyRecentKeys';
 
 async function createKey() {
   const name = prompt('Name for this API key?');

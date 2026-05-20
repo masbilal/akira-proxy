@@ -50,7 +50,7 @@ router.get('/', (req, res) => {
     models, 
     apiKeys,
     active: 'chat',
-    title: 'Chat · dapuranmu'
+    title: 'Chat · Akira Proxy'
   });
 });
 

@@ -13,7 +13,7 @@ const { launchBrowser } = require('./lib/browser');
 
 (async () => {
   const argv = process.argv.slice(2);
-  const tmp = path.join(os.tmpdir(), 'dapuranmu-browser-smoke-' + Date.now());
+  const tmp = path.join(os.tmpdir(), 'akira-proxy-browser-smoke-' + Date.now());
   const { context, browserType } = await launchBrowser({
     userDataDir: tmp,
     headless: true,

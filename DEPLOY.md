@@ -1,6 +1,6 @@
 # Panduan Deploy ke VPS Ubuntu CloudPanel
 
-Panduan lengkap untuk deploy **dapuranmu** ke VPS Ubuntu dengan CloudPanel sebagai hub sinkronisasi.
+Panduan lengkap untuk deploy **Akira Proxy** ke VPS Ubuntu dengan CloudPanel sebagai hub sinkronisasi.
 
 ## Prasyarat
 
@@ -54,7 +54,7 @@ sudo su - siteuser
 cd ~/htdocs/router.example.com
 
 # Clone repo (ganti URL dengan repo Anda)
-git clone https://github.com/yourusername/dapuranmu.git .
+git clone https://github.com/masbilal/akira-proxy.git .
 
 # Atau jika sudah ada repo lokal, push ke VPS via git
 ```
@@ -103,7 +103,7 @@ BACKUP_MYSQL_HOST=127.0.0.1
 BACKUP_MYSQL_PORT=3306
 BACKUP_MYSQL_USER=siteuser
 BACKUP_MYSQL_PASSWORD=<password-mysql-dari-cloudpanel>
-BACKUP_MYSQL_DATABASE=dapuranmu
+BACKUP_MYSQL_DATABASE=akira_proxy
 
 # Production settings
 NODE_ENV=production
@@ -113,7 +113,7 @@ SESSION_SECURE_COOKIE=1
 **Cara dapat MySQL password:**
 - CloudPanel → Sites → klik site Anda → tab **Databases**
 - Lihat password user database yang sudah dibuat otomatis
-- Atau buat database baru dengan nama `dapuranmu`
+- Atau buat database baru dengan nama `akira_proxy`
 
 ## Langkah 6: Setup Database
 
@@ -180,7 +180,7 @@ Buka browser: `https://router.example.com`
 Di komputer lokal Anda:
 
 ```bash
-cd /path/to/dapuranmu
+cd /path/to/akira-proxy
 cp .env.example .env
 nano .env
 ```
@@ -277,13 +277,13 @@ sudo systemctl status nginx
 
 ```bash
 # Cek user MySQL bisa akses database
-mysql -u siteuser -p dapuranmu
+mysql -u siteuser -p akira_proxy
 # Masukkan password dari .env
 
 # Jika database belum ada, buat manual:
 mysql -u root -p
-CREATE DATABASE dapuranmu CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON dapuranmu.* TO 'siteuser'@'localhost';
+CREATE DATABASE akira_proxy CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON akira_proxy.* TO 'siteuser'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
@@ -297,16 +297,16 @@ FLUSH PRIVILEGES;
 
 ```bash
 # Cek ukuran outbox
-sqlite3 /home/siteuser/htdocs/router.example.com/data/dapuranmu.db \
+sqlite3 /home/siteuser/htdocs/router.example.com/data/akira-proxy.db \
   "SELECT COUNT(*) FROM sync_outbox;"
 
 # Jika > 10000 dan semua peer sudah sync, aman untuk truncate:
 # (Cek dulu cursor terendah di sync_peers)
-sqlite3 /home/siteuser/htdocs/router.example.com/data/dapuranmu.db \
+sqlite3 /home/siteuser/htdocs/router.example.com/data/akira-proxy.db \
   "SELECT node_id, MIN(last_pull_outbox_id) FROM sync_peers;"
 
 # Hapus outbox lama (ganti 5000 dengan cursor terendah)
-sqlite3 /home/siteuser/htdocs/router.example.com/data/dapuranmu.db \
+sqlite3 /home/siteuser/htdocs/router.example.com/data/akira-proxy.db \
   "DELETE FROM sync_outbox WHERE id < 5000;"
 ```
 
@@ -336,11 +336,11 @@ sudo systemctl restart router.example.com
 
 ```bash
 # Backup SQLite
-cp /home/siteuser/htdocs/router.example.com/data/dapuranmu.db \
-   /home/siteuser/backups/dapuranmu-$(date +%Y%m%d).db
+cp /home/siteuser/htdocs/router.example.com/data/akira-proxy.db \
+   /home/siteuser/backups/akira-proxy-$(date +%Y%m%d).db
 
 # Backup MySQL (otomatis via app, atau manual)
-mysqldump -u siteuser -p dapuranmu > dapuranmu-backup.sql
+mysqldump -u siteuser -p akira_proxy > akira-proxy-backup.sql
 ```
 
 ### Monitor Logs
@@ -469,4 +469,4 @@ Jika ada masalah:
 
 ---
 
-**Selamat! Dapuranmu sekarang running di VPS dan sync otomatis dengan lokal.** 🚀
+**Selamat! Akira Proxy sekarang running di VPS dan sync otomatis dengan lokal.** 🚀
