@@ -62,6 +62,9 @@ const SYNCED_TABLES = {
     ],
     fks: { current_account_id: 'provider_accounts' },
     hasUpdatedAt: true,
+    // Columns enforced UNIQUE in SQLite. When an INSERT collides on one
+    // of these we resolve by last-write-wins instead of crashing.
+    uniqueKeys: ['slug', 'name'],
   },
   provider_accounts: {
     columns: [
@@ -71,6 +74,7 @@ const SYNCED_TABLES = {
     ],
     fks: { provider_id: 'providers' },
     hasUpdatedAt: true,
+    uniqueKeys: [],
   },
   models: {
     columns: [
@@ -79,6 +83,7 @@ const SYNCED_TABLES = {
     ],
     fks: { provider_id: 'providers' },
     hasUpdatedAt: true,
+    uniqueKeys: ['name'],
   },
   api_keys: {
     // No updated_at column; we use COALESCE(revoked_at, last_used_at, created_at)
@@ -90,6 +95,7 @@ const SYNCED_TABLES = {
     ],
     fks: {},
     hasUpdatedAt: false,
+    uniqueKeys: ['key_hash'],
   },
 };
 
@@ -371,10 +377,100 @@ function applyIncomingChange(change) {
     db.prepare(sql).run(params);
     return 'applied';
   } catch (err) {
-    // Likely a UNIQUE constraint conflict (e.g. two nodes both inserted a
-    // provider with the same slug). Mark as conflict and don't crash.
+    // UNIQUE constraint collision: a different uuid already owns one of
+    // the natural keys (slug/name/key_hash/...). Reconcile via LWW
+    // instead of crashing — adopt whichever side is newer.
+    if (isUniqueConstraint(err)) {
+      const reconciled = reconcileUniqueConflict(change, params, def, incomingTs);
+      if (reconciled) return reconciled;
+    }
     log(`apply ${change.table} ${change.uuid} conflict: ${err.message}`);
     return 'conflict';
+  }
+}
+
+// ---------- unique-key reconciliation -----------------------------------
+
+function isUniqueConstraint(err) {
+  if (!err) return false;
+  const msg = String(err.message || '');
+  return /UNIQUE constraint failed/i.test(msg) || err.code === 'SQLITE_CONSTRAINT_UNIQUE';
+}
+
+/**
+ * When INSERT fails because a natural-key column (slug/name/key_hash/...)
+ * is already used by a row with a different uuid, decide who wins:
+ *
+ *   - If the local row is newer (or same ts but lexicographically larger
+ *     node_id), keep local. Return 'skipped'.
+ *   - Otherwise the incoming row wins. We promote the local row's uuid to
+ *     the incoming uuid and overwrite all data columns. This converges
+ *     both nodes onto a single uuid so future updates apply cleanly.
+ *
+ * Returns 'applied', 'skipped', or null if reconciliation didn't apply.
+ */
+function reconcileUniqueConflict(change, insertParams, def, incomingTs) {
+  const uniqueKeys = Array.isArray(def.uniqueKeys) ? def.uniqueKeys : [];
+  if (!uniqueKeys.length) return null;
+
+  // Find the local row that owns the conflicting natural key.
+  let localRow = null;
+  for (const col of uniqueKeys) {
+    const value = insertParams[col];
+    if (value == null) continue;
+    const candidate = db.prepare(
+      `SELECT * FROM ${change.table} WHERE ${col} = ? LIMIT 1`
+    ).get(value);
+    if (candidate && candidate.uuid !== change.uuid) {
+      localRow = candidate;
+      break;
+    }
+  }
+  if (!localRow) return null;
+
+  const localTs = rowTimestamp(change.table, localRow);
+  const incomingNode = String(change.node_id || '');
+  const localNode = String(localRow.node_id || '');
+
+  // Local wins on LWW: keep local row, drop the incoming insert.
+  if (incomingTs < localTs) {
+    log(`reconcile ${change.table} ${change.uuid}: local newer, keeping local uuid=${localRow.uuid}`);
+    return 'skipped';
+  }
+  if (incomingTs === localTs && localNode >= incomingNode) {
+    log(`reconcile ${change.table} ${change.uuid}: tie-break favors local uuid=${localRow.uuid}`);
+    return 'skipped';
+  }
+
+  // Incoming wins: rewrite local row to adopt incoming uuid + data.
+  const set = ['uuid = @uuid', 'node_id = @node_id'];
+  const params = {
+    id: localRow.id,
+    uuid: change.uuid,
+    node_id: incomingNode || state.nodeId,
+  };
+  for (const col of def.columns) {
+    if (col in insertParams) {
+      set.push(`${col} = @${col}`);
+      params[col] = insertParams[col];
+    }
+  }
+  for (const fkCol of Object.keys(def.fks)) {
+    set.push(`${fkCol} = @${fkCol}`);
+    params[fkCol] = insertParams[fkCol] || null;
+  }
+  set.push('deleted_at = @deleted_at');
+  params.deleted_at = insertParams.deleted_at || null;
+
+  try {
+    db.prepare(
+      `UPDATE ${change.table} SET ${set.join(', ')} WHERE id = @id`
+    ).run(params);
+    log(`reconcile ${change.table}: adopted incoming uuid=${change.uuid} (was uuid=${localRow.uuid})`);
+    return 'applied';
+  } catch (err) {
+    log(`reconcile ${change.table} ${change.uuid} update failed: ${err.message}`);
+    return null;
   }
 }
 
