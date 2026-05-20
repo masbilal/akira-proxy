@@ -1525,6 +1525,21 @@ router.post('/sync/run', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/admin/sync/reconcile
+ * Manually scan synced tables for duplicate natural keys (e.g. two providers
+ * sharing the same slug) and merge them via last-write-wins. Useful when
+ * peers were running pre-fix and stuck rows still need to be resolved.
+ */
+router.post('/sync/reconcile', (req, res) => {
+  try {
+    const summary = sync.reconcileExistingDuplicates();
+    res.json({ ok: true, summary, status: sync.getStatus() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 /* ----------------------- PLAYGROUND PROXY --------------------------- */
 
 /**

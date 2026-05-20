@@ -3,3 +3,11 @@ node_modules/
 data/
 *.log
 .DS_Store
+
+# Editor / deploy helpers (may contain credentials)
+.vscode/sftp.json
+.vscode/ftp-sync.json
+
+# Local archives
+*.zip
+tmp-*

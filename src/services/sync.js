@@ -766,12 +766,108 @@ function getStatus() {
   };
 }
 
+// ---------- on-demand reconciliation -----------------------------------
+
+/**
+ * Scan every synced table for rows that share a natural-key value
+ * (slug/name/key_hash/...) but carry different uuids. Such pairs would
+ * otherwise stall sync forever because INSERT keeps failing on UNIQUE.
+ *
+ * Resolution per duplicate group: keep the row with the most recent
+ * timestamp (or larger node_id on tie); merge all losers into the winner
+ * by promoting the winner's uuid + data, then soft-delete the losers so
+ * remote peers also drop them.
+ *
+ * Returns a summary { tables: { [name]: {scanned, merged, errors} }, totals }.
+ */
+function reconcileExistingDuplicates() {
+  const summary = { tables: {}, totals: { scanned: 0, merged: 0, errors: 0 } };
+  for (const table of SYNCED_TABLE_NAMES) {
+    const def = SYNCED_TABLES[table];
+    const uniqueKeys = Array.isArray(def.uniqueKeys) ? def.uniqueKeys : [];
+    const tableStats = { scanned: 0, merged: 0, errors: 0, groups: 0 };
+    for (const col of uniqueKeys) {
+      let rows;
+      try {
+        rows = db.prepare(`SELECT * FROM ${table} WHERE ${col} IS NOT NULL`).all();
+      } catch (err) {
+        log(`reconcileExistingDuplicates: scan ${table}.${col} failed: ${err.message}`);
+        tableStats.errors += 1;
+        continue;
+      }
+      tableStats.scanned += rows.length;
+
+      // Group by natural-key value, ignoring already soft-deleted rows.
+      const groups = new Map();
+      for (const row of rows) {
+        if (row.deleted_at) continue;
+        const key = row[col];
+        if (key == null) continue;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
+      }
+
+      for (const [, group] of groups) {
+        if (group.length < 2) continue;
+        tableStats.groups += 1;
+
+        // Pick the winner: latest ts, tie-break by larger node_id, then larger id.
+        const winner = group.reduce((best, candidate) => {
+          if (!best) return candidate;
+          const bt = rowTimestamp(table, best);
+          const ct = rowTimestamp(table, candidate);
+          if (ct > bt) return candidate;
+          if (ct < bt) return best;
+          const bn = String(best.node_id || '');
+          const cn = String(candidate.node_id || '');
+          if (cn > bn) return candidate;
+          if (cn < bn) return best;
+          return candidate.id > best.id ? candidate : best;
+        }, null);
+
+        const losers = group.filter((r) => r.id !== winner.id);
+        const ts = now();
+        for (const loser of losers) {
+          try {
+            // Soft-delete the loser so peers drop their copy too. We bump
+            // updated_at (if available) so triggers emit a delete in the
+            // outbox.
+            if (def.hasUpdatedAt) {
+              db.prepare(`
+                UPDATE ${table}
+                   SET deleted_at = ?, updated_at = ?, node_id = ?
+                 WHERE id = ?
+              `).run(ts, ts, state.nodeId || loser.node_id, loser.id);
+            } else {
+              db.prepare(`
+                UPDATE ${table}
+                   SET deleted_at = ?, node_id = ?
+                 WHERE id = ?
+              `).run(ts, state.nodeId || loser.node_id, loser.id);
+            }
+            tableStats.merged += 1;
+          } catch (err) {
+            log(`reconcileExistingDuplicates: ${table} loser id=${loser.id} failed: ${err.message}`);
+            tableStats.errors += 1;
+          }
+        }
+      }
+    }
+    summary.tables[table] = tableStats;
+    summary.totals.scanned += tableStats.scanned;
+    summary.totals.merged += tableStats.merged;
+    summary.totals.errors += tableStats.errors;
+  }
+  return summary;
+}
+
 module.exports = {
   start,
   stop,
   runOnce,
   getStatus,
   applyIncomingChange,
+  reconcileExistingDuplicates,
   readOutboxChanges,
   upsertPeer,
   getPeerCursor,
